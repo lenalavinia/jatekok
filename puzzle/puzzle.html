@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Memória Játék</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-family: Arial, sans-serif;
+            margin: 0;
+            min-height: 100vh;
+        }
+        #game-board {
+            display: grid;
+            grid-template-columns: repeat(8, 100px);
+            grid-template-rows: repeat(4, 100px);
+            gap: 10px;
+            margin-top: 20px;
+            max-width: 880px;
+            overflow-x: auto;
+            z-index: 10;
+        }
+        .card {
+            width: 100px;
+            height: 100px;
+            background: url('heart-back.jpg') no-repeat center center;
+            background-size: cover;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.3s;
+            position: relative;
+        }
+        .card.flipped, .card.matched {
+            background: none;
+        }
+        .card.flipped {
+            transform: rotateY(180deg);
+        }
+        .card.matched {
+            background-color: #4CAF50;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 1s ease;
+        }
+        .card img {
+            width: 100%;
+            height: 100%;
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 2;
+        }
+        .card.flipped img {
+            display: block;
+        }
+        #mode-selection {
+            margin: 20px;
+            text-align: center;
+        }
+        #upload-section {
+            margin: 20px;
+            width: 100%;
+            max-width: 600px;
+            z-index: 1;
+            display: none;
+        }
+        #file-selector {
+            border: 1px solid #ccc;
+            padding: 10px;
+            border-radius: 5px;
+            background: #f9f9f9;
+        }
+        #file-drop-area {
+            border: 2px dashed #ccc;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 10px;
+            cursor: pointer;
+        }
+        #file-drop-area.dragover {
+            background: #e0e0e0;
+            border-color: #4CAF50;
+        }
+        #file-list {
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            margin: 10px 0;
+            padding: 5px;
+        }
+        #file-list div {
+            display: flex;
+            align-items: center;
+            padding: 5px;
+            border-bottom: 1px solid #eee;
+        }
+        #file-list img {
+            width: 40px;
+            height: 40px;
+            object-fit: cover;
+            margin-right: 10px;
+        }
+        #file-list span {
+            flex-grow: 1;
+        }
+        #file-count {
+            margin: 10px 0;
+            font-size: 16px;
+        }
+        #playAgainDialog {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+            z-index: 1000;
+        }
+        #score-section {
+            margin: 10px 0;
+            text-align: center;
+            z-index: 10;
+        }
+        #clickCount, #bestClick {
+            font-size: 18px;
+            color: #333;
+        }
+        .game-active #mode-selection,
+        .game-active #upload-section {
+            display: none;
+            visibility: hidden;
+        }
+        .game-active #game-board {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+        .game-active #score-section {
+            position: absolute;
+            top: 20%;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        .game-inactive #game-board,
+        .game-inactive #score-section {
+            display: none;
+        }
+        #sound-toggle-game {
+            margin: 10px 0;
+            z-index: 10;
+        }
+        .game-inactive #sound-toggle-game {
+            display: none;
+        }
+
+        /* Updated button styles from index.html */
+        button {
+            background-color: #3498db; /* Blue base color */
+            border: none;
+            padding: 15px 30px; /* Larger padding for consistency */
+            margin: 10px; /* Adjusted margin */
+            border-radius: 25px;
+            color: white;
+            font-size: 18px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            position: relative;
+            overflow: hidden;
+            display: inline-block; /* Changed to inline-block for better flow */
+            text-align: center;
+        }
+
+        button:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+            background-color: #2ecc71; /* Green color on hover */
+        }
+
+        button::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            transition: width 0.6s ease, height 0.6s ease;
+        }
+
+        button:hover::before {
+            width: 300px;
+            height: 300px;
+        }
+
+        /* Spinning text default state */
+        .spinning-text {
+            display: inline-block;
+            transition: transform 0.3s ease;
+        }
+
+        /* Spinning animation only on hover */
+        button:hover .spinning-text {
+            animation: spinX 1s infinite linear;
+        }
+
+        /* X-axis spin animation */
+        @keyframes spinX {
+            0% {
+                transform: rotateX(0deg);
+            }
+            100% {
+                transform: rotateX(360deg);
+            }
+        }
+
+        /* Specific overrides for smaller buttons */
+        #file-list button {
+            padding: 3px 8px; /* Keep smaller size for "Töröl" buttons */
+            font-size: 14px; /* Smaller font for "Töröl" buttons */
+            margin: 0 5px; /* Adjusted margin */
+        }
+
+        #start-game-btn:disabled {
+            background: #cccccc;
+            cursor: not-allowed;
+            box-shadow: none; /* Remove shadow when disabled */
+            transform: none; /* No hover effect when disabled */
+        }
+
+        #playAgainDialog button {
+            padding: 5px 15px; /* Slightly smaller padding for dialog buttons */
+            margin: 0 10px;
+        }
+    </style>
+</head>
+<body class="game-inactive">
+    <h1>Memória Játék</h1>
+    <button id="sound-toggle-game" onclick="toggleSound()"><span class="spinning-text">Hang kikapcsolása 🔇</span></button>
+    <div id="mode-selection">
+        <p>Válassz játékmódot:</p>
+        <button id="custom-images-btn" onclick="selectCustomImages()"><span class="spinning-text">Saját képek feltöltése</span></button>
+        <button id="predefined-images-btn" onclick="selectPredefinedImages()"><span class="spinning-text">Előre megadott képek használata</span></button>
+    </div>
+    <div id="upload-section">
+        <div id="file-selector">
+            <input type="file" id="imageUpload" accept="image/*" multiple style="display: none;">
+            <div id="file-drop-area">
+                Húzd ide a képeket, vagy kattints a "Képek hozzáadása" gombra!
+                <br>
+                <button onclick="document.getElementById('imageUpload').click()"><span class="spinning-text">Képek hozzáadása</span></button>
+            </div>
+            <div id="file-list"></div>
+            <div id="file-count">Kiválasztva: 0/16 kép</div>
+            <button id="start-game-btn" onclick="startGameWithCustomImages()" disabled><span class="spinning-text">Játék indítása</span></button>
+        </div>
+    </div>
+    <div id="score-section">
+        <div id="clickCount">Kattintások: 0</div>
+        <div id="bestClick">Legkevesebb kattintás: Nincs - None</div>
+    </div>
+    <div id="game-board"></div>
+    <div id="playAgainDialog">
+        <p>Szeretnél újra játszani?</p>
+        <button id="yesButton"><span class="spinning-text">Igen</span></button>
+        <button id="noButton"><span class="spinning-text">Nem</span></button>
+    </div>
+
+    <script>
+        let cards = [];
+        let flippedCards = [];
+        let matchedPairs = 0;
+        let clickCount = 0;
+        let bestClickCount = localStorage.getItem('memoryBestClickCount') ? parseInt(localStorage.getItem('memoryBestClickCount')) : Infinity;
+        let bestClickName = localStorage.getItem('memoryBestClickName') || 'None';
+        let selectedFiles = [];
+        let isSoundEnabled = true;
+
+        const predefinedImages = [
+            'spic/s1.jpg', 'spic/s2.jpg', 'spic/s3.jpg', 'spic/s4.jpg', 'spic/s5.jpg', 'spic/s6.jpg', 'spic/s7.jpg', 'spic/s8.jpg',
+            'spic/s9.jpg', 'spic/s10.jpg', 'spic/s11.jpg', 'spic/s12.jpg', 'spic/s13.jpg', 'spic/s14.jpg', 'spic/s15.jpg', 'spic/s16.jpg'
+        ];
+
+        const imageUpload = document.getElementById('imageUpload');
+        const fileDropArea = document.getElementById('file-drop-area');
+        const fileList = document.getElementById('file-list');
+        const fileCount = document.getElementById('file-count');
+        const startGameBtn = document.getElementById('start-game-btn');
+        const uploadSection = document.getElementById('upload-section');
+        const gameBoard = document.getElementById('game-board');
+        const scoreSection = document.getElementById('score-section');
+        const modeSelection = document.getElementById('mode-selection');
+
+        // Initialize sounds
+        const dealSound = new Audio('osztas.mp3');
+        const flipSound = new Audio('felfedes.mp3');
+        const fanfareSound = new Audio('fanfare.mp3');
+        dealSound.muted = !isSoundEnabled;
+        flipSound.muted = !isSoundEnabled;
+        fanfareSound.muted = !isSoundEnabled;
+
+        function toggleSound() {
+            isSoundEnabled = !isSoundEnabled;
+            dealSound.muted = !isSoundEnabled;
+            flipSound.muted = !isSoundEnabled;
+            fanfareSound.muted = !isSoundEnabled;
+            document.getElementById("sound-toggle-game").querySelector(".spinning-text").innerHTML = isSoundEnabled ? "Hang kikapcsolása 🔇" : "Hang bekapcsolása 🔊";
+        }
+
+        function selectCustomImages() {
+            modeSelection.style.display = 'none';
+            uploadSection.style.display = 'block';
+        }
+
+        function selectPredefinedImages() {
+            startGameWithPredefinedImages();
+        }
+
+        function getFileIdentifier(file) {
+            return `${file.name}-${file.size}`;
+        }
+
+        fileDropArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            fileDropArea.classList.add('dragover');
+        });
+
+        fileDropArea.addEventListener('dragleave', () => {
+            fileDropArea.classList.remove('dragover');
+        });
+
+        fileDropArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            fileDropArea.classList.remove('dragover');
+            const newFiles = Array.from(e.dataTransfer.files).filter(file => file.type.startsWith('image/'));
+            addFiles(newFiles);
+        });
+
+        imageUpload.addEventListener('change', () => {
+            const newFiles = Array.from(imageUpload.files);
+            addFiles(newFiles);
+            imageUpload.value = '';
+        });
+
+        function addFiles(newFiles) {
+            const existingIdentifiers = new Set(selectedFiles.map(getFileIdentifier));
+            const filteredFiles = newFiles.filter(file => {
+                const identifier = getFileIdentifier(file);
+                if (existingIdentifiers.has(identifier)) {
+                    alert(`A "${file.name}" nevű fájl már hozzá van adva!`);
+                    return false;
+                }
+                return true;
+            });
+
+            selectedFiles = [...selectedFiles, ...filteredFiles];
+
+            if (selectedFiles.length > 16) {
+                selectedFiles = selectedFiles.slice(0, 16);
+                alert('Maximum 16 képet választhatsz! Az első 16 képet tartottuk meg.');
+            }
+
+            updateFileList();
+        }
+
+        function updateFileList() {
+            fileList.innerHTML = '';
+            selectedFiles.forEach((file, index) => {
+                const fileItem = document.createElement('div');
+                
+                const previewImg = document.createElement('img');
+                previewImg.src = URL.createObjectURL(file);
+                fileItem.appendChild(previewImg);
+
+                const fileName = document.createElement('span');
+                fileName.textContent = file.name;
+                fileItem.appendChild(fileName);
+
+                const removeBtn = document.createElement('button');
+                removeBtn.innerHTML = '<span class="spinning-text">Töröl</span>';
+                removeBtn.onclick = () => {
+                    selectedFiles.splice(index, 1);
+                    updateFileList();
+                };
+                fileItem.appendChild(removeBtn);
+
+                fileList.appendChild(fileItem);
+            });
+
+            fileCount.textContent = `Kiválasztva: ${selectedFiles.length}/16 kép`;
+            startGameBtn.disabled = selectedFiles.length !== 16;
+        }
+
+        function startGameWithCustomImages() {
+            if (selectedFiles.length !== 16) {
+                alert('Pontosan 16 képet kell feltöltened (32 kártya)!');
+                return;
+            }
+
+            document.body.classList.remove('game-inactive');
+            document.body.classList.add('game-active');
+
+            uploadSection.style.display = 'none';
+            uploadSection.style.visibility = 'hidden';
+            uploadSection.style.zIndex = '-1';
+
+            const imageData = selectedFiles.map((file, index) => ({
+                url: URL.createObjectURL(file),
+                pairNumber: index + 1
+            }));
+
+            const imagePairs = [...imageData, ...imageData];
+            cards = shuffle(imagePairs.map((data, index) => ({
+                id: `card-${index}`,
+                image: data.url,
+                pairNumber: data.pairNumber,
+                matched: false,
+                element: null
+            })));
+
+            createBoard();
+            matchedPairs = 0;
+            clickCount = 0;
+            updateClickDisplay();
+            updateBestClickDisplay();
+            document.getElementById('playAgainDialog').style.display = 'none';
+            if (isSoundEnabled) dealSound.play();
+        }
+
+        function startGameWithPredefinedImages() {
+            document.body.classList.remove('game-inactive');
+            document.body.classList.add('game-active');
+
+            uploadSection.style.display = 'none';
+            uploadSection.style.visibility = 'hidden';
+            uploadSection.style.zIndex = '-1';
+
+            const imageData = predefinedImages.map((url, index) => ({
+                url: url,
+                pairNumber: index + 1
+            }));
+
+            const imagePairs = [...imageData, ...imageData];
+            cards = shuffle(imagePairs.map((data, index) => ({
+                id: `card-${index}`,
+                image: data.url,
+                pairNumber: data.pairNumber,
+                matched: false,
+                element: null
+            })));
+
+            createBoard();
+            matchedPairs = 0;
+            clickCount = 0;
+            updateClickDisplay();
+            updateBestClickDisplay();
+            document.getElementById('playAgainDialog').style.display = 'none';
+            if (isSoundEnabled) dealSound.play();
+        }
+
+        function shuffle(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        function createBoard() {
+            const gameBoard = document.getElementById('game-board');
+            gameBoard.innerHTML = '';
+            cards.forEach(card => {
+                const cardElement = document.createElement('div');
+                cardElement.classList.add('card');
+                cardElement.dataset.cardId = card.id;
+                card.element = cardElement;
+
+                const img = document.createElement('img');
+                img.src = card.image;
+                cardElement.appendChild(img);
+
+                cardElement.addEventListener('click', flipCard);
+                gameBoard.appendChild(cardElement);
+            });
+        }
+
+        function flipCard() {
+            if (flippedCards.length >= 2) return;
+            const cardElement = this;
+            const cardId = cardElement.dataset.cardId;
+            const card = cards.find(c => c.id === cardId);
+
+            if (cardElement.classList.contains('flipped') || card.matched) return;
+
+            clickCount++;
+            updateClickDisplay();
+            if (isSoundEnabled) flipSound.play();
+
+            cardElement.classList.add('flipped');
+            flippedCards.push(card);
+
+            if (flippedCards.length === 2) {
+                checkMatch();
+            }
+        }
+
+        function checkMatch() {
+            const [card1, card2] = flippedCards;
+
+            if (card1.pairNumber === card2.pairNumber) {
+                card1.matched = true;
+                card2.matched = true;
+                card1.element.classList.add('matched');
+                card2.element.classList.add('matched');
+                matchedPairs++;
+                flippedCards = [];
+
+                if (matchedPairs === cards.length / 2) {
+                    setTimeout(() => {
+                        if (isSoundEnabled) fanfareSound.play();
+                        if (clickCount < bestClickCount) {
+                            let playerName = prompt(`Új rekord! Kattintások: ${clickCount}\nAdd meg a neved:`);
+                            if (playerName) {
+                                bestClickCount = clickCount;
+                                bestClickName = playerName;
+                                localStorage.setItem('memoryBestClickCount', bestClickCount);
+                                localStorage.setItem('memoryBestClickName', bestClickName);
+                                updateBestClickDisplay();
+                            }
+                        }
+                        document.getElementById('playAgainDialog').style.display = 'block';
+                    }, 500);
+                }
+            } else {
+                setTimeout(() => {
+                    card1.element.classList.remove('flipped');
+                    card2.element.classList.remove('flipped');
+                    flippedCards = [];
+                }, 1000);
+            }
+        }
+
+        function updateClickDisplay() {
+            document.getElementById('clickCount').textContent = `Kattintások: ${clickCount}`;
+        }
+
+        function updateBestClickDisplay() {
+            if (bestClickCount === Infinity) {
+                document.getElementById('bestClick').textContent = `Legkevesebb kattintás: Nincs - None`;
+            } else {
+                document.getElementById('bestClick').textContent = `Legkevesebb kattintás: ${bestClickCount} - ${bestClickName}`;
+            }
+        }
+
+        document.getElementById('yesButton').addEventListener('click', () => {
+            selectedFiles = [];
+            updateFileList();
+            document.getElementById('game-board').innerHTML = '';
+            document.getElementById('playAgainDialog').style.display = 'none';
+            document.body.classList.remove('game-active');
+            document.body.classList.add('game-inactive');
+            modeSelection.style.display = 'block';
+            uploadSection.style.display = 'none';
+            uploadSection.style.visibility = 'visible';
+            uploadSection.style.zIndex = '1';
+        });
+
+        document.getElementById('noButton').addEventListener('click', () => {
+            document.getElementById('playAgainDialog').style.display = 'none';
+            window.open('', '_self')?.close();
+        });
+
+        updateBestClickDisplay();
+    </script>
+</body>
+</html>

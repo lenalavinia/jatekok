@@ -1,0 +1,44 @@
+document.getElementById('noButton').addEventListener('click', () => {
+    playAgainDialog.style.display = 'none';
+    resetLayout();
+});
+
+erre csere
+
+
+document.getElementById('noButton').addEventListener('click', () => {
+    // Megpróbálja bezárni a fület
+    window.open('', '_self')?.close();
+});
+
+document.getElementById('noButton').addEventListener('click', () => {
+    const closed = window.open('', '_self')?.close();
+    if (!closed) {
+        alert("A böngésző nem engedi bezárni ezt a fület. Kérlek, zárd be manuálisan.");
+    }
+});
+
+
+csere
+document.getElementById('yesButton').addEventListener('click', () => {
+    location.reload();
+});
+
+document.getElementById('noButton').addEventListener('click', () => {
+    playAgainDialog.style.display = 'none';
+    resetLayout();
+});
+
+erre
+document.getElementById('yesButton').addEventListener('click', () => {
+    location.reload();
+});
+
+document.getElementById('noButton').addEventListener('click', () => {
+    const closed = window.open('', '_self')?.close();
+    if (!closed) {
+        alert("A böngésző nem engedi bezárni ezt a fület. Kérlek, zárd be manuálisan.");
+    }
+});
+
+
