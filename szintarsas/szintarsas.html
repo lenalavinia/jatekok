@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Szín Társas</title>
+    <style>
+        body {
+            background-color: #ffffff;
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+
+        h1 {
+            color: #000000;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+            margin-bottom: 40px;
+            animation: fadeIn 1s ease-in;
+        }
+
+        #game-container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+
+        .page { display: none; }
+        .active { display: block; }
+
+        .board-row { display: flex; flex-direction: row; margin-bottom: 10px; }
+        .square {
+            width: 50px;
+            height: 50px;
+            margin: 5px;
+            border: none;
+            border-radius: 25px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .start-goal {
+            width: 50px;
+            height: 50px;
+            margin: 5px;
+            border: none;
+            border-radius: 25px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .board-player-piece {
+            width: 1rem;
+            height: 1rem;
+            border-radius: 50%;
+            border: 1px solid black;
+            background-color: black;
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 10;
+        }
+
+        .top-container {
+            display: flex;
+            align-items: center;
+            margin: 20px 0;
+            width: 100%;
+        }
+
+        .spacer {
+            flex: 1;
+        }
+
+        #player-list {
+            flex: 0 0 auto;
+            margin: 0;
+        }
+
+        #dice-result {
+            flex: 0 0 auto;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #000000;
+            width: 100px;
+            height: 100px;
+            border-radius: 10px;
+            padding: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .dice-choice {
+            width: 50px;
+            height: 50px;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 10px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .dice-choice:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .dice-choice::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            transition: width 0.6s ease, height 0.6s ease;
+        }
+
+        .dice-choice:hover::before {
+            width: 300px;
+            height: 300px;
+        }
+
+        #sound-toggle {
+            flex: 0 0 auto;
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #3498db;
+            border: none;
+            border-radius: 25px;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #sound-toggle:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+            background-color: #2ecc71;
+        }
+
+        #sound-toggle::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            transition: width 0.6s ease, height 0.6s ease;
+        }
+
+        #sound-toggle:hover::before {
+            width: 300px;
+            height: 300px;
+        }
+
+        button {
+            background-color: #3498db;
+            border: none;
+            padding: 15px 30px;
+            margin: 0 5px;
+            border-radius: 25px;
+            color: white;
+            font-size: 18px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        button:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+            background-color: #2ecc71;
+        }
+
+        button::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            transition: width 0.6s ease, height 0.6s ease;
+        }
+
+        button:hover::before {
+            width: 300px;
+            height: 300px;
+        }
+
+        .spinning-text {
+            display: inline-block;
+            transition: transform 0.3s ease;
+        }
+
+        button:hover .spinning-text {
+            animation: spinX 1s infinite linear;
+        }
+
+        @keyframes spinX {
+            0% { transform: rotateX(0deg); }
+            100% { transform: rotateX(360deg); }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        select {
+            padding: 5px;
+            font-size: 16px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            margin: 5px;
+        }
+
+        label {
+            font-size: 16px;
+            margin-right: 10px;
+        }
+
+        #player-list {
+            margin: 0;
+        }
+
+        .player-indicator {
+            display: inline-block;
+            width: 1rem;
+            height: 1rem;
+            border-radius: 50%;
+            border: 1px solid black;
+            background-color: black;
+            margin-left: 5px;
+            vertical-align: middle;
+        }
+
+        .player-name {
+            cursor: pointer;
+        }
+
+        .current-player {
+            font-weight: bold;
+            font-size: 1.2em;
+        }
+
+        #nameChangeDialog {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: #fff;
+            padding: 20px;
+            border: 2px solid #000;
+            border-radius: 10px;
+            z-index: 1000;
+            text-align: center;
+            display: none;
+        }
+
+        #nameChangeDialog input {
+            margin: 10px 0;
+            padding: 5px;
+            width: 200px;
+        }
+
+        #nameChangeDialog button {
+            background-color: #3498db;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 25px;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            margin: 0 5px;
+        }
+
+        #nameChangeDialog button:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+            background-color: #2ecc71;
+        }
+
+        #restart-div {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        #restart-div p {
+            margin: 10px 0;
+            font-size: 18px;
+        }
+
+        #restart-buttons {
+            display: flex;
+            gap: 20px;
+        }
+
+        #restart-buttons button {
+            margin: 0;
+            display: inline-block;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <div id="start-page" class="page active">
+            <h1>Szín Társas</h1>
+            <div>
+                <label for="player-count">Játékosok száma:</label>
+                <select id="player-count">
+                    <option value="2">2</option>
+                    <option value="3">3</option>
+                    <option value="4">4</option>
+                    <option value="5">5</option>
+                    <option value="6">6</option>
+                </select>
+                <br><br>
+                <button onclick="startGame()"><span class="spinning-text">Játék indítása</span></button>
+            </div>
+        </div>
+
+        <div id="game-page" class="page">
+            <div class="top-container">
+                <div id="player-list"></div>
+                <div class="spacer"></div>
+                <div id="dice-result"></div>
+                <div class="spacer"></div>
+                <button id="sound-toggle" onclick="toggleSound()"><span class="spinning-text">Hang bekapcsolása 🔊</span></button>
+            </div>
+            <div id="boards"></div>
+            <button id="initial-roll-btn" onclick="initialRoll()"><span class="spinning-text">Kocka dobása</span></button>
+            <button id="roll-btn" onclick="rollDice()" style="display: none;"><span class="spinning-text">Kocka dobása</span></button>
+            <p id="message"></p>
+            <div id="restart-div">
+                <p>Új játék?</p>
+                <div id="restart-buttons">
+                    <button onclick="restartGame()"><span class="spinning-text">Igen</span></button>
+                    <button onclick="window.close()"><span class="spinning-text">Nem</span></button>
+                </div>
+            </div>
+        </div>
+
+        <div id="nameChangeDialog">
+            <p>Új név megadása</p>
+            <input type="text" id="newPlayerName" placeholder="Add meg az új nevet" onkeypress="if(event.key === 'Enter') saveNameChange()" />
+            <button onclick="saveNameChange()">Mentés</button>
+            <button onclick="closeNameChangeDialog()">Mégse</button>
+        </div>
+    </div>
+
+    <audio id="diceSound" src="dobas_hang.mp3" muted></audio>
+    <audio id="fanfare" src="fanfare.mp3"></audio>
+
+    <script>
+        const colors = ['Fehér', 'Sárga', 'Piros', 'Narancssárga', 'Kék', 'Zöld'];
+        const colorMap = {
+            'Fehér': '#FFFFFF',
+            'Sárga': '#FFFF00',
+            'Piros': '#FF0000',
+            'Narancssárga': '#FFA500',
+            'Kék': '#0000FF',
+            'Zöld': '#008000'
+        };
+        const boardSquares = colors.concat(colors).concat(colors); // 18 squares
+
+        let numPlayers;
+        let players = [];
+        let currentPlayer = 0;
+        let startingPlayerDetermined = false;
+        let rolledColor = '';
+        let isSoundEnabled = false;
+        let gameActive = true;
+
+        function toggleSound() {
+            isSoundEnabled = !isSoundEnabled;
+            document.getElementById("diceSound").muted = !isSoundEnabled;
+            document.getElementById("fanfare").muted = !isSoundEnabled;
+            document.getElementById("sound-toggle").querySelector(".spinning-text").innerHTML = isSoundEnabled ? "Hang kikapcsolása 🔇" : "Hang bekapcsolása 🔊";
+        }
+
+        function startGame() {
+            numPlayers = parseInt(document.getElementById('player-count').value);
+            players = [];
+            for (let i = 0; i < numPlayers; i++) {
+                players.push({ id: i + 1, name: `Játékos ${i + 1}`, position: 0 });
+            }
+            document.getElementById('start-page').classList.remove('active');
+            document.getElementById('game-page').classList.add('active');
+            renderBoards();
+            renderPlayerList();
+            initialRoll();
+        }
+
+        function renderBoards() {
+            const boardsDiv = document.getElementById('boards');
+            boardsDiv.innerHTML = '';
+            for (let p = 0; p < numPlayers; p++) {
+                const playerDiv = document.createElement('div');
+                playerDiv.classList.add('player-board');
+                
+                // Player label
+                const playerLabel = document.createElement('span');
+                playerLabel.innerText = `${players[p].name}: `;
+                playerDiv.appendChild(playerLabel);
+
+                // Board row
+                const rowDiv = document.createElement('div');
+                rowDiv.classList.add('board-row');
+                
+                // Start position
+                const startDiv = document.createElement('div');
+                startDiv.classList.add('start-goal');
+                startDiv.style.backgroundColor = '#CCCCCC'; // Gray for Start
+                startDiv.innerText = 'Start';
+                rowDiv.appendChild(startDiv);
+                
+                // Squares
+                for (let i = 0; i < 18; i++) {
+                    const sqDiv = document.createElement('div');
+                    sqDiv.classList.add('square');
+                    sqDiv.style.backgroundColor = colorMap[colors[i % colors.length]];
+                    rowDiv.appendChild(sqDiv);
+                }
+                
+                playerDiv.appendChild(rowDiv);
+                boardsDiv.appendChild(playerDiv);
+            }
+            updatePawns();
+        }
+
+        function updatePawns() {
+            const playerBoards = document.querySelectorAll('.player-board');
+            playerBoards.forEach((board, p) => {
+                const row = board.querySelector('.board-row');
+                const positions = row.children; // 0: start, 1-18: squares
+                // Clear all previous pawns
+                for (let i = 0; i < positions.length; i++) {
+                    positions[i].innerHTML = '';
+                }
+                // Place pawn if position is valid
+                const playerPos = players[p].position;
+                if (playerPos >= 0 && playerPos <= 18) {
+                    const posIndex = playerPos === 0 ? 0 : playerPos; // 0 for start, 1-18 for squares
+                    const piece = document.createElement('div');
+                    piece.className = 'board-player-piece';
+                    positions[posIndex].appendChild(piece);
+                }
+            });
+        }
+
+        function renderPlayerList() {
+            const list = document.getElementById('player-list');
+            list.innerHTML = '';
+            players.forEach((p, idx) => {
+                const row = document.createElement('div');
+                row.style.display = 'flex';
+                row.style.alignItems = 'center';
+                row.style.gap = '0.5rem';
+                const mark = document.createElement('div');
+                mark.className = 'player-indicator';
+                const span = document.createElement('span');
+                span.className = 'player-name';
+                span.innerText = p.name;
+                if (idx === currentPlayer) {
+                    span.classList.add('current-player');
+                }
+                span.onclick = () => openNameChangeDialog(idx);
+                row.appendChild(mark);
+                row.appendChild(span);
+                list.appendChild(row);
+            });
+            updateRollButton();
+        }
+
+        function openNameChangeDialog(playerIndex) {
+            const dialog = document.getElementById('nameChangeDialog');
+            document.getElementById('newPlayerName').value = '';
+            dialog.dataset.playerIndex = playerIndex;
+            dialog.style.display = 'block';
+            setTimeout(() => {
+                document.getElementById('newPlayerName').focus();
+            }, 0);
+        }
+
+        function closeNameChangeDialog() {
+            const dialog = document.getElementById('nameChangeDialog');
+            dialog.style.display = 'none';
+        }
+
+        function saveNameChange() {
+            const dialog = document.getElementById('nameChangeDialog');
+            const playerIndex = dialog.dataset.playerIndex;
+            const newName = document.getElementById('newPlayerName').value.trim();
+            if (newName) {
+                players[playerIndex].name = newName;
+                renderBoards();
+                renderPlayerList();
+            }
+            closeNameChangeDialog();
+        }
+
+        function initialRoll() {
+            if (!gameActive) return;
+            const roll = Math.floor(Math.random() * numPlayers) + 1;
+            currentPlayer = roll - 1;
+            document.getElementById('message').innerText = `${players[currentPlayer].name} dob`;
+            document.getElementById('initial-roll-btn').style.display = 'none';
+            document.getElementById('roll-btn').style.display = 'block';
+            startingPlayerDetermined = true;
+            renderPlayerList();
+            updatePawns();
+        }
+
+        function rollDice() {
+            if (!startingPlayerDetermined || players[currentPlayer].position >= 18 || !gameActive) {
+                nextPlayer();
+                return;
+            }
+            if (isSoundEnabled) {
+                document.getElementById("diceSound").play();
+            }
+            document.getElementById('roll-btn').disabled = true;
+            let animationCount = 0;
+            const resultDiv = document.getElementById('dice-result');
+            resultDiv.innerHTML = '';
+            const interval = setInterval(() => {
+                const tempColor = colors[Math.floor(Math.random() * 6)];
+                resultDiv.innerHTML = '';
+                const choiceDiv = document.createElement('div');
+                choiceDiv.classList.add('dice-choice');
+                choiceDiv.style.backgroundColor = colorMap[tempColor];
+                resultDiv.appendChild(choiceDiv);
+                animationCount++;
+                if (animationCount >= 10) {
+                    clearInterval(interval);
+                    rolledColor = colors[Math.floor(Math.random() * 6)];
+                    resultDiv.innerHTML = '';
+                    const choiceDiv = document.createElement('div');
+                    choiceDiv.classList.add('dice-choice');
+                    choiceDiv.style.backgroundColor = colorMap[rolledColor];
+                    resultDiv.appendChild(choiceDiv);
+                    moveWithColor(rolledColor);
+                    document.getElementById('roll-btn').disabled = false;
+                }
+            }, 100);
+        }
+
+        function moveWithColor(chosenColor) {
+            if (!gameActive) return;
+            const pos = players[currentPlayer].position;
+            let newPos = -1;
+            // Find next forward
+            for (let i = pos + 1; i <= 18; i++) {
+                if (boardSquares[i - 1] === chosenColor) {
+                    newPos = i;
+                    break;
+                }
+            }
+            if (newPos === -1) {
+                // Find nearest back
+                for (let i = pos; i >= 1; i--) {
+                    if (boardSquares[i - 1] === chosenColor) {
+                        newPos = i;
+                        break;
+                    }
+                }
+            }
+            if (newPos !== -1) {
+                players[currentPlayer].position = newPos;
+                updatePawns();
+                if (newPos === 18) {
+                    gameActive = false;
+                    document.getElementById('message').innerText = `${players[currentPlayer].name} nyert!`;
+                    if (isSoundEnabled) {
+                        document.getElementById('fanfare').play();
+                    }
+                    document.getElementById('roll-btn').style.display = 'none';
+                    document.getElementById('initial-roll-btn').style.display = 'none';
+                    showRestartPrompt();
+                    return;
+                }
+            }
+            nextPlayer();
+        }
+
+        function nextPlayer() {
+            if (!gameActive) return;
+            startingPlayerDetermined = false;
+            document.getElementById('initial-roll-btn').style.display = 'block';
+            document.getElementById('roll-btn').style.display = 'none';
+            initialRoll();
+        }
+
+        function showRestartPrompt() {
+            document.getElementById('restart-div').style.display = 'flex';
+        }
+
+        function restartGame() {
+            // Reset game state
+            players = [];
+            numPlayers = undefined;
+            currentPlayer = 0;
+            startingPlayerDetermined = false;
+            gameActive = true;
+            rolledColor = '';
+            // Reset UI
+            document.getElementById('message').innerText = '';
+            document.getElementById('dice-result').innerHTML = '';
+            document.getElementById('restart-div').style.display = 'none';
+            document.getElementById('game-page').classList.remove('active');
+            document.getElementById('start-page').classList.add('active');
+            document.getElementById('fanfare').pause();
+            document.getElementById('fanfare').currentTime = 0;
+            document.getElementById('sound-toggle').querySelector(".spinning-text").innerHTML = isSoundEnabled ? "Hang kikapcsolása 🔇" : "Hang bekapcsolása 🔊";
+        }
+
+        function updateRollButton() {
+            const rollButton = document.getElementById('roll-btn');
+            const rollButtonText = rollButton.querySelector('.spinning-text');
+            if (players[currentPlayer].position >= 18 || !startingPlayerDetermined || !gameActive) {
+                rollButton.style.pointerEvents = 'none';
+                rollButton.style.opacity = '0.5';
+            } else {
+                rollButton.style.pointerEvents = 'auto';
+                rollButton.style.opacity = '1';
+            }
+            rollButtonText.innerHTML = `Kocka dobása`;
+        }
+    </script>
+</body>
+</html>
