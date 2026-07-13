@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pitagorasz-tétel számoló</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            padding: 20px;
+            background-color: #f4f4f9;
+        }
+        h1 {
+            text-align: center;
+        }
+        .container {
+            max-width: 400px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        input, button {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        p.result {
+            font-size: 18px;
+            font-weight: bold;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <h1>Pitagorasz-tétel számoló</h1>
+    <div class="container">
+        <label for="side1">Befogó 1:</label>
+        <input type="number" id="side1" placeholder="Adja meg a befogó 1-t">
+
+        <label for="side2">Befogó 2:</label>
+        <input type="number" id="side2" placeholder="Adja meg a befogó 2-t">
+
+        <label for="hypotenuse">Átfogó:</label>
+        <input type="number" id="hypotenuse" placeholder="Adja meg az átfogót">
+
+        <button onclick="calculate()">Számolás</button>
+
+        <p class="result" id="result"></p>
+    </div>
+
+    <script>
+        function calculate() {
+            let side1 = parseFloat(document.getElementById("side1").value);
+            let side2 = parseFloat(document.getElementById("side2").value);
+            let hypotenuse = parseFloat(document.getElementById("hypotenuse").value);
+            let result = document.getElementById("result");
+
+            if (!isNaN(side1) && !isNaN(side2) && !isNaN(hypotenuse)) {
+                result.textContent = "Túl sok érték van megadva, válasszon két értéket!";
+                return;
+            }
+
+            if (!isNaN(side1) && !isNaN(side2)) {
+                hypotenuse = Math.sqrt(Math.pow(side1, 2) + Math.pow(side2, 2));
+                result.textContent = "Átfogó: " + hypotenuse.toFixed(2);
+            } else if (!isNaN(side1) && !isNaN(hypotenuse)) {
+                side2 = Math.sqrt(Math.pow(hypotenuse, 2) - Math.pow(side1, 2));
+                result.textContent = "Befogó 2: " + side2.toFixed(2);
+            } else if (!isNaN(side2) && !isNaN(hypotenuse)) {
+                side1 = Math.sqrt(Math.pow(hypotenuse, 2) - Math.pow(side2, 2));
+                result.textContent = "Befogó 1: " + side1.toFixed(2);
+            } else {
+                result.textContent = "Kérem, adjon meg két értéket!";
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Falbontó játék</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background-color: #333;
+      position: relative;
+      font-family: Arial, sans-serif;
+      color: white;
+      user-select: none;
+    }
+
+    canvas {
+      border: 2px solid #fff;
+      background-color: #222;
+    }
+
+    #score, #bestScore {
+      position: absolute;
+      top: 20px;
+      font-size: 20px;
+      font-weight: bold;
+      color: white;
+      user-select: none;
+    }
+
+    #score {
+      left: 50%;
+      transform: translateX(-50%);
+    }
+
+    #bestScore {
+      right: 20px;
+    }
+
+    #pauseMessage {
+      position: absolute;
+      top: 100px;
+      width: 100%;
+      text-align: center;
+      font-size: 40px;
+      display: none;
+    }
+
+    #nameInput {
+      position: absolute;
+      top: 40%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background-color: rgba(0, 0, 0, 0.85);
+      padding: 25px 35px;
+      border-radius: 12px;
+      box-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
+      text-align: center;
+      display: none;
+      user-select: text;
+      color: white;
+    }
+
+    #nameInput label {
+      font-size: 22px;
+      font-weight: bold;
+      display: block;
+      margin-bottom: 12px;
+    }
+
+    #nameInput input {
+      font-size: 18px;
+      padding: 8px 10px;
+      width: 220px;
+      border-radius: 6px;
+      border: none;
+      margin-bottom: 15px;
+      outline: none;
+    }
+
+    #nameInput button {
+      font-size: 18px;
+      padding: 10px 22px;
+      background-color: #0095DD;
+      border: none;
+      border-radius: 6px;
+      color: white;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+
+    #nameInput button:hover {
+      background-color: #0077b6;
+    }
+
+    #newGamePrompt {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background-color: rgba(0,0,0,0.85);
+      padding: 25px 35px;
+      border-radius: 12px;
+      box-shadow: 0 0 20px rgba(255,255,255,0.3);
+      text-align: center;
+      display: none;
+      user-select: none;
+      color: white;
+      z-index: 1000;
+    }
+
+    #newGamePrompt p {
+      font-size: 22px;
+      margin-bottom: 20px;
+      font-weight: bold;
+    }
+
+    #newGamePrompt .button-container {
+      display: flex;
+      flex-direction: row;
+      gap: 20px;
+    }
+
+    #newGamePrompt button {
+      background-color: #3498db;
+      border: none;
+      padding: 15px 30px;
+      border-radius: 25px;
+      color: white;
+      font-size: 18px;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+      transition: all 0.3s ease;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    #newGamePrompt button:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+      background-color: #2ecc71;
+    }
+
+    #newGamePrompt button::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 0;
+      height: 0;
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      transition: width 0.6s ease, height 0.6s ease;
+    }
+
+    #newGamePrompt button:hover::before {
+      width: 300px;
+      height: 300px;
+    }
+
+    #newGamePrompt button .spinning-text {
+      display: inline-block;
+      transition: transform 0.3s ease;
+    }
+
+    #newGamePrompt button:hover .spinning-text {
+      animation: spinX 1s infinite linear;
+    }
+
+    @keyframes spinX {
+      0% {
+        transform: rotateX(0deg);
+      }
+      100% {
+        transform: rotateX(360deg);
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div id="score">Pontszám: 0</div>
+  <div id="bestScore">Legjobb pontszám: 0</div>
+  <div id="pauseMessage">Játék szünetel... Nyomd meg a Space-t a folytatáshoz!</div>
+
+  <div id="nameInput">
+    <label for="playerName">🎉 Új rekord! Add meg a neved:</label>
+    <input type="text" id="playerName" placeholder="Név" autocomplete="off" />
+    <br />
+    <button id="saveNameBtn">Mentés</button>
+  </div>
+
+  <div id="newGamePrompt">
+    <p>Új játék?</p>
+    <div class="button-container">
+      <button id="yesButton"><span class="spinning-text">Igen</span></button>
+      <button id="noButton"><span class="spinning-text">Nem</span></button>
+    </div>
+  </div>
+
+  <canvas id="gameCanvas" width="800" height="600"></canvas>
+
+  <script>
+    // DOM elemek
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    const scoreDisplay = document.getElementById("score");
+    const bestScoreDisplay = document.getElementById("bestScore");
+    const pauseMessage = document.getElementById("pauseMessage");
+    const nameInput = document.getElementById("nameInput");
+    const playerNameInput = document.getElementById("playerName");
+    const saveNameBtn = document.getElementById("saveNameBtn");
+    const newGamePrompt = document.getElementById("newGamePrompt");
+    const yesButton = document.getElementById("yesButton");
+    const noButton = document.getElementById("noButton");
+
+    // Tárolt legjobb eredmény betöltése
+    let bestScore = parseInt(localStorage.getItem("bestScore")) || 0;
+    let bestPlayerName = localStorage.getItem("bestPlayerName") || "N/A";
+    bestScoreDisplay.textContent = `Legjobb pontszám: ${bestScore} (${bestPlayerName})`;
+
+    // Játék változók
+    let ballRadius = 10;
+    let x = canvas.width / 2;
+    let y = canvas.height - 30;
+    let dx = 2;
+    let dy = -2;
+    let ballColor = "#0095DD";
+
+    let paddleHeight = 10;
+    let paddleWidth = 75;
+    let paddleX = (canvas.width - paddleWidth) / 2;
+
+    let rightPressed = false;
+    let leftPressed = false;
+
+    const brickRowCount = 6;
+    const brickColumnCount = 10;
+    const brickWidth = 75;
+    const brickHeight = 20;
+
+    let bricks = [];
+    let score = 0;
+
+    const colors = ["#FF5733", "#33FF57", "#3357FF", "#FF33A1", "#FFD700", "#8A2BE2", "#7FFF00"];
+    const points = [10, 20, 30, 40, 50];
+
+    // Generáljuk a téglákat véletlenszerű elhelyezéssel, nem átfedve
+    function generateBricks() {
+      bricks = [];
+      for (let i = 0; i < brickRowCount * brickColumnCount; i++) {
+        const randomColor = colors[Math.floor(Math.random() * colors.length)];
+        const randomPoints = points[Math.floor(Math.random() * points.length)];
+        let bx = Math.floor(Math.random() * (canvas.width - brickWidth));
+        let by = Math.floor(Math.random() * (canvas.height / 2));
+        let overlap = false;
+
+        for (let j = 0; j < bricks.length; j++) {
+          const b = bricks[j];
+          if (bx < b.x + brickWidth && bx + brickWidth > b.x &&
+              by < b.y + brickHeight && by + brickHeight > b.y) {
+            overlap = true;
+            break;
+          }
+        }
+
+        if (!overlap) {
+          bricks.push({ x: bx, y: by, status: 1, color: randomColor, points: randomPoints });
+        } else {
+          i--;
+        }
+      }
+    }
+
+    generateBricks();
+
+    let isPaused = false;
+    let gameOverFlag = false; // Jelzi, ha vége a játéknak
+
+    document.addEventListener("keydown", keyDownHandler);
+    document.addEventListener("keyup", keyUpHandler);
+    canvas.addEventListener("mousemove", mouseMoveHandler);
+
+    // ENTER gomb a név inputban
+    playerNameInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        saveRecord();
+      }
+    });
+
+    saveNameBtn.addEventListener("click", saveRecord);
+
+    yesButton.addEventListener("click", () => {
+      // Új játék indítása: reload vagy reset
+      resetGame();
+      newGamePrompt.style.display = "none";
+    });
+
+    noButton.addEventListener("click", () => {
+      // Ablak bezárása (ha lehet)
+      newGamePrompt.style.display = "none";
+      try {
+        window.open('', '_self').close();
+      } catch {
+        // Ha nem engedi a böngésző, csak elrejti
+      }
+    });
+
+    function mouseMoveHandler(e) {
+      let relativeX = e.clientX - canvas.offsetLeft;
+      if (relativeX > 0 && relativeX < canvas.width) {
+        paddleX = relativeX - paddleWidth / 2;
+        // Megakadályozzuk, hogy az ütő kimenjen a játéktérről
+        if (paddleX < 0) {
+          paddleX = 0;
+        }
+        if (paddleX > canvas.width - paddleWidth) {
+          paddleX = canvas.width - paddleWidth;
+        }
+      }
+    }
+
+    function keyDownHandler(e) {
+      if (e.key === "Right" || e.key === "ArrowRight") {
+        rightPressed = true;
+      } else if (e.key === "Left" || e.key === "ArrowLeft") {
+        leftPressed = true;
+      } else if (e.key === " " || e.key === "Space") {
+        if (gameOverFlag) {
+          // Ha game over, space újat indít
+          resetGame();
+          newGamePrompt.style.display = "none";
+          return;
+        }
+        togglePause();
+      }
+    }
+
+    function keyUpHandler(e) {
+      if (e.key === "Right" || e.key === "ArrowRight") {
+        rightPressed = false;
+      } else if (e.key === "Left" || e.key === "ArrowLeft") {
+        leftPressed = false;
+      }
+    }
+
+    function togglePause() {
+      isPaused = !isPaused;
+      if (isPaused) {
+        pauseMessage.style.display = "block";
+      } else {
+        pauseMessage.style.display = "none";
+        draw();
+      }
+    }
+
+    function gameOver() {
+      isPaused = true;
+      gameOverFlag = true;
+
+      pauseMessage.style.display = "none";
+      nameInput.style.display = "none";
+
+      if(score > bestScore) {
+        nameInput.style.display = "block";
+        playerNameInput.value = "";
+        playerNameInput.focus();
+      } else {
+        // Kiírjuk az új játék kérdést
+        newGamePrompt.style.display = "block";
+      }
+    }
+
+    function saveRecord() {
+      const name = playerNameInput.value.trim();
+      if (name === "") {
+        alert("Kérlek, adj meg egy nevet!");
+        playerNameInput.focus();
+        return;
+      }
+      bestScore = score;
+      bestPlayerName = name;
+      localStorage.setItem("bestScore", bestScore);
+      localStorage.setItem("bestPlayerName", bestPlayerName);
+      bestScoreDisplay.textContent = `Legjobb pontszám: ${bestScore} (${bestPlayerName})`;
+      nameInput.style.display = "none";
+      newGamePrompt.style.display = "block";
+      gameOverFlag = true;
+    }
+
+    function resetGame() {
+      isPaused = false;
+      gameOverFlag = false;
+      score = 0;
+      scoreDisplay.textContent = `Pontszám: ${score}`;
+      x = canvas.width / 2;
+      y = canvas.height - 30;
+      dx = 2;
+      dy = -2;
+      paddleX = (canvas.width - paddleWidth) / 2;
+      generateBricks();
+      pauseMessage.style.display = "none";
+      nameInput.style.display = "none";
+      newGamePrompt.style.display = "none";
+      draw();
+    }
+
+    function drawBall() {
+      ctx.beginPath();
+      ctx.arc(x, y, ballRadius, 0, Math.PI*2);
+      ctx.fillStyle = ballColor;
+      ctx.fill();
+      ctx.closePath();
+    }
+
+    function drawPaddle() {
+      ctx.beginPath();
+      ctx.rect(paddleX, canvas.height - paddleHeight - 10, paddleWidth, paddleHeight);
+      ctx.fillStyle = "#0095DD";
+      ctx.fill();
+      ctx.closePath();
+    }
+
+    function drawBricks() {
+      bricks.forEach(brick => {
+        if (brick.status === 1) {
+          ctx.beginPath();
+          ctx.rect(brick.x, brick.y, brickWidth, brickHeight);
+          ctx.fillStyle = brick.color;
+          ctx.fill();
+          ctx.closePath();
+        }
+      });
+    }
+
+    function collisionDetection() {
+      for (let i = 0; i < bricks.length; i++) {
+        let b = bricks[i];
+        if (b.status === 1) {
+          if (x > b.x && x < b.x + brickWidth && y > b.y && y < b.y + brickHeight) {
+            dy = -dy;
+            b.status = 0;
+            score += b.points;
+            scoreDisplay.textContent = `Pontszám: ${score}`;
+
+            ballColor = colors[Math.floor(Math.random() * colors.length)];
+
+            if (score === bricks.reduce((sum, b) => sum + b.points, 0)) {
+              // Mindet leszedtük
+              gameOverFlag = true;
+              isPaused = true;
+              newGamePrompt.style.display = "block";
+            }
+          }
+        }
+      }
+    }
+
+    function draw() {
+      if (isPaused) return;
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      drawBricks();
+      drawBall();
+      drawPaddle();
+      collisionDetection();
+
+      // Falakról visszapattanás
+      if (x + dx > canvas.width - ballRadius || x + dx < ballRadius) {
+        dx = -dx;
+        ballColor = colors[Math.floor(Math.random() * colors.length)];
+      }
+      if (y + dy < ballRadius) {
+        dy = -dy;
+        ballColor = colors[Math.floor(Math.random() * colors.length)];
+      } else if (y + dy > canvas.height - ballRadius - paddleHeight - 10) {
+        if (x > paddleX && x < paddleX + paddleWidth) {
+          dy = -dy;
+          ballColor = colors[Math.floor(Math.random() * colors.length)];
+        } else if (y + dy > canvas.height - ballRadius) {
+          gameOver();
+          return;
+        }
+      }
+
+      if (rightPressed && paddleX < canvas.width - paddleWidth) {
+        paddleX += 7;
+      } else if (leftPressed && paddleX > 0) {
+        paddleX -= 7;
+      }
+
+      x += dx;
+      y += dy;
+
+      requestAnimationFrame(draw);
+    }
+
+    // Első rajzolás
+    draw();
+  </script>
+</body>
+</html>

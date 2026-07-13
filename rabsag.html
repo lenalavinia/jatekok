@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Eltelt Napok Számítása</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin-top: 50px;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #result {
+            margin-top: 20px;
+            font-size: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Eltelt Napok Számítása</h1>
+    <p>Kattints a gombra, hogy megtudd hány nap telt el 2009. szeptember 5. óta.</p>
+    
+    <button onclick="calculateDays()">Eltelt napok</button>
+    
+    <p id="result"></p>
+
+    <script>
+        function calculateDays() {
+            // Az aktuális dátum
+            const currentDate = new Date();
+            
+            // 2009. szeptember 5. dátum
+            const targetDate = new Date(2009, 8, 5); // A hónapok 0-tól kezdődnek, tehát a 9. hónap a 8-as indexű
+
+            // Különbség a két dátum között (milliszekundumban)
+            const timeDifference = currentDate - targetDate;
+
+            // Átváltás napokra
+            const daysElapsed = Math.floor(timeDifference / (1000 * 60 * 60 * 24));
+
+            // Eredmény kiírása
+            document.getElementById('result').innerText = "Eltelt napok: " + daysElapsed;
+        }
+    </script>
+</body>
+</html>

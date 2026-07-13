@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sudoku</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+
+        .title {
+            font-size: 36px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        .sudoku-board {
+            display: grid;
+            grid-template-columns: repeat(9, 50px);
+            grid-template-rows: repeat(9, 50px);
+            gap: 1px;
+            border: 4px solid black;
+            padding: 5px;
+            background-color: #f4f4f4;
+        }
+
+        .sudoku-cell {
+            width: 50px;
+            height: 50px;
+            text-align: center;
+            line-height: 50px;
+            font-size: 20px;
+            border: 1px solid #ddd;
+            background-color: white;
+            box-sizing: border-box;
+        }
+
+        .sudoku-cell:focus {
+            outline: none;
+            border: 1px solid #3b7bfc;
+            background-color: #f0f8ff;
+        }
+
+        .sudoku-cell.readonly {
+            background-color: #e0e0e0;
+            color: #333;
+            font-weight: bold;
+        }
+
+        .sudoku-cell:nth-child(3n):not(:nth-child(9n)) {
+            border-right: 4px solid black;
+        }
+
+        .sudoku-cell:nth-child(n+19):nth-child(-n+27) {
+            border-bottom: 4px solid black;
+        }
+
+        .sudoku-cell:nth-child(n+46):nth-child(-n+54) {
+            border-bottom: 4px solid black;
+        }
+
+        .sudoku-cell:nth-child(9n) {
+            border-right: 1px solid #ddd;
+        }
+
+        .sudoku-cell:nth-child(n+73):nth-child(-n+81) {
+            border-bottom: 1px solid #ddd;
+        }
+
+        /* Button styles from index.html */
+        button {
+            background-color: #3498db; /* Blue base color */
+            border: none;
+            padding: 15px 30px;
+            margin: 10px;
+            border-radius: 25px;
+            color: white;
+            font-size: 18px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        button:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+            background-color: #2ecc71; /* Green color on hover */
+        }
+
+        button::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            transition: width 0.6s ease, height 0.6s ease;
+        }
+
+        button:hover::before {
+            width: 300px;
+            height: 300px;
+        }
+
+        /* Spinning text default state */
+        .spinning-text {
+            display: inline-block;
+            transition: transform 0.3s ease;
+        }
+
+        /* Spinning animation only on hover */
+        button:hover .spinning-text {
+            animation: spinX 1s infinite linear;
+        }
+
+        /* X-axis spin animation */
+        @keyframes spinX {
+            0% {
+                transform: rotateX(0deg);
+            }
+            100% {
+                transform: rotateX(360deg);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="title">Sudoku</h1>
+        <div class="sudoku-board" id="sudoku-board"></div>
+        <button onclick="checkSolution()"><span class="spinning-text">Ellenőrzés</span></button>
+    </div>
+
+    <script>
+        const sudokuBoard = document.getElementById('sudoku-board');
+
+        const originalPuzzle = [
+            [5, 3, 0, 0, 7, 0, 0, 0, 0],
+            [6, 0, 0, 1, 9, 5, 0, 0, 0],
+            [0, 9, 8, 0, 0, 0, 0, 6, 0],
+            [8, 0, 0, 0, 6, 0, 0, 0, 3],
+            [4, 0, 0, 8, 0, 3, 0, 0, 1],
+            [7, 0, 0, 0, 2, 0, 0, 0, 6],
+            [0, 6, 0, 0, 0, 0, 2, 8, 0],
+            [0, 0, 0, 4, 1, 9, 0, 0, 5],
+            [0, 0, 0, 0, 8, 0, 0, 7, 9]
+        ];
+
+        const solution = [
+            [5, 3, 4, 6, 7, 8, 9, 1, 2],
+            [6, 7, 2, 1, 9, 5, 3, 4, 8],
+            [1, 9, 8, 3, 4, 2, 5, 6, 7],
+            [8, 5, 9, 7, 6, 1, 4, 2, 3],
+            [4, 2, 6, 8, 5, 3, 7, 9, 1],
+            [7, 1, 3, 9, 2, 4, 8, 5, 6],
+            [9, 6, 1, 5, 3, 7, 2, 8, 4],
+            [2, 8, 7, 4, 1, 9, 6, 3, 5],
+            [3, 4, 5, 2, 8, 6, 1, 7, 9]
+        ];
+
+        function generateBoard() {
+            for (let row = 0; row < 9; row++) {
+                for (let col = 0; col < 9; col++) {
+                    const cell = document.createElement('input');
+                    cell.type = 'text';
+                    cell.maxLength = 1;
+                    cell.classList.add('sudoku-cell');
+                    cell.dataset.row = row;
+                    cell.dataset.col = col;
+
+                    if (originalPuzzle[row][col] !== 0) {
+                        cell.value = originalPuzzle[row][col];
+                        cell.classList.add('readonly');
+                        cell.disabled = true;
+                    }
+
+                    cell.addEventListener('input', handleInput);
+                    cell.addEventListener('keydown', handleArrowKeys);
+
+                    sudokuBoard.appendChild(cell);
+                }
+            }
+        }
+
+        function handleInput(event) {
+            const cell = event.target;
+            const value = cell.value;
+
+            if (value && !/^[1-9]$/.test(value)) {
+                cell.value = '';
+                return;
+            }
+
+            if (value) {
+                setTimeout(() => {
+                    const nextCell = findNextEmptyCell(cell);
+                    if (nextCell) nextCell.focus();
+                }, 0);
+            }
+        }
+
+        function handleArrowKeys(event) {
+            if (event.key.startsWith('Arrow')) {
+                event.preventDefault();
+                const currentCell = event.target;
+                const row = parseInt(currentCell.dataset.row);
+                const col = parseInt(currentCell.dataset.col);
+
+                let nextRow = row;
+                let nextCol = col;
+
+                switch(event.key) {
+                    case 'ArrowUp': nextRow = Math.max(row - 1, 0); break;
+                    case 'ArrowDown': nextRow = Math.min(row + 1, 8); break;
+                    case 'ArrowLeft': nextCol = Math.max(col - 1, 0); break;
+                    case 'ArrowRight': nextCol = Math.min(col + 1, 8); break;
+                }
+
+                const cells = document.querySelectorAll('.sudoku-cell');
+                const nextCell = cells[nextRow * 9 + nextCol];
+                if (!nextCell.disabled) nextCell.focus();
+            }
+        }
+
+        function findNextEmptyCell(currentCell) {
+            const cells = Array.from(document.querySelectorAll('.sudoku-cell'));
+            const currentIndex = cells.indexOf(currentCell);
+            
+            for (let i = currentIndex + 1; i < cells.length; i++) {
+                const cell = cells[i];
+                if (!cell.disabled && cell.value === '') {
+                    return cell;
+                }
+            }
+            return null;
+        }
+
+        function checkSolution() {
+            const cells = document.querySelectorAll('.sudoku-cell');
+            let correct = true;
+
+            cells.forEach((cell, index) => {
+                const row = Math.floor(index / 9);
+                const col = index % 9;
+                const cellValue = parseInt(cell.value) || 0;
+                
+                if (originalPuzzle[row][col] === 0 && cellValue !== solution[row][col]) {
+                    correct = false;
+                }
+            });
+
+            alert(correct ? 'Helyes megoldás!' : 'Nem helyes megoldás!');
+        }
+
+        generateBoard();
+    </script>
+</body>
+</html>

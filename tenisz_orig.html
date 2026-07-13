@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teniszjáték</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+            font-family: sans-serif;
+            flex-direction: column; /* Hogy a vászon és a winnerMessage egymás alá kerüljön */
+        }
+        canvas {
+            border: 2px solid black;
+            display: block;
+            margin: auto;
+        }
+        #playAgainDialog {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 20px 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            z-index: 1000;
+            text-align: center;
+        }
+        #playAgainDialog p {
+            margin-top: 0;
+            margin-bottom: 15px;
+            font-size: 1.1em;
+        }
+        #playAgainDialog button {
+            margin: 0 10px;
+            padding: 8px 18px;
+            font-size: 1em;
+            cursor: pointer;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        #playAgainDialog button#yesButton {
+            background-color: #4CAF50;
+            color: white;
+            border-color: #4CAF50;
+        }
+        #playAgainDialog button#noButton {
+            background-color: #f44336;
+            color: white;
+            border-color: #f44336;
+        }
+        #playAgainDialog button:hover {
+            opacity: 0.9;
+        }
+        #winnerMessage {
+            display: none;
+            text-align: center;
+            margin-top: 20px;
+            font-size: 1.5em;
+            color: blue;
+            font-family: sans-serif;
+        }
+        #winnerMessage p {
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+    <!-- Győztes kiírására szolgáló div -->
+    <div id="winnerMessage">
+        <p id="winnerText"></p>
+        <p id="finalScore"></p>
+    </div>
+
+    <!-- A dialógusablak HTML struktúrája -->
+    <div id="playAgainDialog">
+        <p>Akar még játszani?</p>
+        <button id="yesButton">Igen</button>
+        <button id="noButton">Nem</button>
+    </div>
+
+    <!-- A p5.js könyvtár betöltése CDN-ről -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.2/p5.min.js"></script>
+
+    <!-- A p5.js játék kódja -->
+    <script>
+        let player1Y;
+        let player2Y;
+        let ballX, ballY;
+        let ballSpeedX, ballSpeedY;
+        let player1Score = 0;
+        let player2Score = 0;
+        let gameOver = false;
+        let winner = "";
+        let obstacles = [];
+        let lastObstacleChange = 0;
+
+        const playAgainDialog = document.getElementById('playAgainDialog');
+        const yesButton = document.getElementById('yesButton');
+        const noButton = document.getElementById('noButton');
+
+        function setup() {
+            let canvas = createCanvas(960, 540);
+            canvas.parent(document.body);
+            resetGame();
+        }
+
+        function draw() {
+            background(255);
+
+            textSize(32);
+            textAlign(CENTER, TOP);
+            fill(0);
+            text(player1Score + ":" + player2Score, width / 2, 10);
+
+            manageObstacles();
+
+            if (keyIsDown(UP_ARROW) && player1Y > 0) {
+                player1Y -= 5;
+            }
+            if (keyIsDown(DOWN_ARROW) && player1Y < height - 50) {
+                player1Y += 5;
+            }
+            fill(0, 128, 0);
+            rect(10, player1Y, 10, 50);
+
+            player2Y = mouseY;
+            player2Y = constrain(player2Y, 0, height - 50);
+            fill(255, 255, 0);
+            rect(width - 20, player2Y, 10, 50);
+
+            ballX += ballSpeedX;
+            ballY += ballSpeedY;
+
+            if (ballY <= 5 || ballY >= height - 5) {
+                ballSpeedY *= -1;
+                ballY = constrain(ballY, 5, height - 5);
+            }
+
+            if (ballX <= 25 && ballX > 15 && ballY >= player1Y && ballY <= player1Y + 50) {
+                ballSpeedX *= -1.05;
+                ballSpeedY += random(-0.5, 0.5);
+                ballX = 26;
+            }
+
+            if (ballX >= width - 25 && ballX < width - 15 && ballY >= player2Y && ballY <= player2Y + 50) {
+                ballSpeedX *= -1.05;
+                ballSpeedY += random(-0.5, 0.5);
+                ballX = width - 26;
+            }
+
+            for (let i = obstacles.length - 1; i >= 0; i--) {
+                let obs = obstacles[i];
+                if (ballX + 5 > obs.x - obs.width / 2 &&
+                    ballX - 5 < obs.x + obs.width / 2 &&
+                    ballY + 5 > obs.y - obs.height / 2 &&
+                    ballY - 5 < obs.y + obs.height / 2) {
+                    let overlapX = (ballX < obs.x) ? (ballX + 5) - (obs.x - obs.width / 2) : (obs.x + obs.width / 2) - (ballX - 5);
+                    let overlapY = (ballY < obs.y) ? (ballY + 5) - (obs.y - obs.height / 2) : (obs.y + obs.height / 2) - (ballY - 5);
+
+                    if (overlapX < overlapY) {
+                        ballSpeedX *= -1;
+                        ballX += (ballSpeedX > 0 ? overlapX : -overlapX);
+                    } else {
+                        ballSpeedY *= -1;
+                        ballY += (ballSpeedY > 0 ? overlapY : -overlapY);
+                    }
+                    break;
+                }
+            }
+
+            if (ballX <= 0) {
+                player2Score++;
+                checkGameOver();
+                if (!gameOver) resetBall();
+            }
+            if (ballX >= width) {
+                player1Score++;
+                checkGameOver();
+                if (!gameOver) resetBall();
+            }
+
+            fill(255, 0, 0);
+            noStroke();
+            ellipse(ballX, ballY, 10, 10);
+            stroke(0);
+
+            for (let obs of obstacles) {
+                fill(139, 69, 19);
+                noStroke();
+                ellipse(obs.x, obs.y, obs.width, obs.height);
+                stroke(0);
+            }
+        }
+
+        function checkGameOver() {
+            if (player1Score >= 3) {
+                gameOver = true;
+                winner = "Első Játékos ";
+            } else if (player2Score >= 3) {
+                gameOver = true;
+                winner = "Második Játékos ";
+            }
+
+            if (gameOver) {
+                const winnerMessage = document.getElementById('winnerMessage');
+                const winnerText = document.getElementById('winnerText');
+                const finalScore = document.getElementById('finalScore');
+
+                winnerText.textContent = winner + " nyert!";
+                finalScore.textContent = player1Score + ":" + player2Score;
+
+                winnerMessage.style.display = 'block';
+
+                playAgainDialog.style.display = 'block';
+                noLoop();
+            }
+        }
+
+        function resetGame() {
+            player1Y = height / 2 - 25;
+            player2Y = height / 2 - 25;
+            player1Score = 0;
+            player2Score = 0;
+            gameOver = false;
+            winner = "";
+            obstacles = [];
+            lastObstacleChange = millis();
+            resetBall();
+            
+            playAgainDialog.style.display = 'none';
+            document.getElementById('winnerMessage').style.display = 'none';
+        }
+
+        function resetBall() {
+            ballX = width / 2;
+            ballY = height / 2;
+            let angle = random([PI / 4, 3 * PI / 4, 5 * PI / 4, 7 * PI / 4]);
+            ballSpeedX = 3 * cos(angle);
+            ballSpeedY = 3 * sin(angle);
+        }
+
+        function manageObstacles() {
+            let currentTime = millis();
+            if (currentTime - lastObstacleChange > random(2000, 5000)) {
+                if (random(1) < 0.6 && obstacles.length < 3) {
+                    let newObstacle = {
+                        x: random(width * 0.3, width * 0.7),
+                        y: random(height * 0.2, height * 0.8),
+                        width: 40,
+                        height: 40
+                    };
+                    let distToCenter = dist(newObstacle.x, newObstacle.y, width / 2, height / 2);
+                    if (distToCenter > 100) {
+                        obstacles.push(newObstacle);
+                    }
+                } else if (obstacles.length > 0 && random(1) < 0.4) {
+                    obstacles.splice(floor(random(obstacles.length)), 1);
+                }
+                lastObstacleChange = currentTime;
+            }
+        }
+
+        yesButton.addEventListener('click', () => {
+            playAgainDialog.style.display = 'none';
+            resetGame();
+            loop();
+        });
+
+        noButton.addEventListener('click', () => {
+            playAgainDialog.style.display = 'none';
+        });
+    </script>
+</body>
+</html>

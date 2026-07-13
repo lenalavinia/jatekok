@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <title>T Bootcamp - Tetris</title>
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: #1a1a1a;
+            font-family: Arial, sans-serif;
+        }
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        #gameContainer {
+            display: flex;
+            gap: 40px;
+            align-items: flex-start;
+        }
+        .playerArea {
+            text-align: center;
+        }
+        .canvasContainer {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+        }
+        canvas {
+            border: 2px solid white;
+            display: block;
+        }
+        .nextPieceCanvas {
+            border: 2px solid #555;
+            width: 120px;
+            height: 120px;
+        }
+        .score, #highScoreDisplay {
+            color: white;
+            font-size: 20px;
+            margin-top: 10px;
+            min-height: 50px;
+        }
+        #highScoreDisplay {
+            text-align: center;
+            width: 100%;
+            margin-bottom: 20px;
+        }
+        #playAgainDialog {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.85);
+            color: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 0 20px rgba(255,255,255,0.3);
+            z-index: 1000;
+            text-align: center;
+        }
+        #playAgainDialog p {
+            margin-bottom: 20px;
+            font-size: 22px;
+            font-weight: bold;
+        }
+        #playAgainDialog .button-container {
+            display: flex;
+            flex-direction: row;
+            justify-content: center;
+            gap: 20px;
+        }
+        #playAgainDialog button {
+            background-color: #3498db;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 25px;
+            color: white;
+            font-size: 18px;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            transition: all 0.3s ease;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        #playAgainDialog button:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+            background-color: #2ecc71;
+        }
+        #playAgainDialog button::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            transition: width 0.6s ease, height 0.6s ease;
+        }
+        #playAgainDialog button:hover::before {
+            width: 300px;
+            height: 300px;
+        }
+        #playAgainDialog button .spinning-text {
+            display: inline-block;
+            transition: transform 0.3s ease;
+        }
+        #playAgainDialog button:hover .spinning-text {
+            animation: spinX 1s infinite linear;
+        }
+        @keyframes spinX {
+            0% {
+                transform: rotateX(0deg);
+            }
+            100% {
+                transform: rotateX(360deg);
+            }
+        }
+        .playerLabel {
+            color: white;
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <div>
+        <div id="highScoreDisplay">High Score: 0 - Névtelen</div>
+        <div id="gameContainer">
+            <div class="playerArea">
+                <div class="playerLabel">Játékos 1 (Q,W,E,S)</div>
+                <div class="canvasContainer">
+                    <canvas id="gameCanvas1" width="300" height="600"></canvas>
+                    <canvas id="nextPieceCanvas1" class="nextPieceCanvas"></canvas>
+                </div>
+                <div id="score1" class="score">Score: 0</div>
+            </div>
+            <div class="playerArea">
+                <div class="playerLabel">Játékos 2 (Nyilak)</div>
+                <div class="canvasContainer">
+                    <canvas id="gameCanvas2" width="300" height="600"></canvas>
+                    <canvas id="nextPieceCanvas2" class="nextPieceCanvas"></canvas>
+                </div>
+                <div id="score2" class="score">Score: 0</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="playAgainDialog">
+        <p id="gameOverMessage">Játék vége!</p>
+        <p>Szeretnétek újra játszani?</p>
+        <div class="button-container">
+            <button id="yesButton"><span class="spinning-text">Igen</span></button>
+            <button id="noButton"><span class="spinning-text">Nem</span></button>
+        </div>
+    </div>
+
+    <script>
+        // --- Konstansok és Globális Változók ---
+        const ROWS = 20;
+        const COLS = 10;
+        const BLOCK_SIZE = 30;
+
+        const SHAPES = [
+            [[1,1,1,1]],       // I
+            [[1,1,1],[0,1,0]], // T
+            [[1,1,1],[1,0,0]], // L
+            [[1,1,1],[0,0,1]], // J (fordított L)
+            [[1,1],[1,1]],     // O
+            [[0,1,1],[1,1,0]], // S
+            [[1,1,0],[0,1,1]]  // Z (fordított S)
+        ];
+
+        const COLORS = ['#00ffff', '#800080', '#ffa500', '#ffff00', '#008000', '#ff0000', '#0000ff'];
+
+        let highScore = localStorage.getItem('tetrisHighScore') ? parseInt(localStorage.getItem('tetrisHighScore'), 10) : 0;
+        let highScoreName = localStorage.getItem('tetrisHighScoreName') || 'Névtelen';
+
+        let gameRunning = true;
+        let animationFrameId = null;
+        let lastTime = 0;
+        const gameSpeed = 800;
+
+        // --- Játékos Objektumok Inicializálása ---
+        function createPlayer(canvasId, nextPieceCanvasId, scoreId) {
+            const canvas = document.getElementById(canvasId);
+            const ctx = canvas.getContext('2d');
+            const nextPieceCanvas = document.getElementById(nextPieceCanvasId);
+            const nextPieceCtx = nextPieceCanvas.getContext('2d');
+            const scoreElement = document.getElementById(scoreId);
+            ctx.canvas.width = COLS * BLOCK_SIZE;
+            ctx.canvas.height = ROWS * BLOCK_SIZE;
+            nextPieceCanvas.width = 120;
+            nextPieceCanvas.height = 120;
+
+            return {
+                canvas: canvas,
+                ctx: ctx,
+                nextPieceCanvas: nextPieceCanvas,
+                nextPieceCtx: nextPieceCtx,
+                scoreElement: scoreElement,
+                board: Array(ROWS).fill().map(() => Array(COLS).fill(0)),
+                currentPiece: null,
+                nextPiece: null,
+                score: 0,
+                gameOver: false,
+                lastMoveTime: 0
+            };
+        }
+
+        let player1 = createPlayer('gameCanvas1', 'nextPieceCanvas1', 'score1'); // Játékos 1 (Q,W,E,S)
+        let player2 = createPlayer('gameCanvas2', 'nextPieceCanvas2', 'score2'); // Játékos 2 (Nyilak)
+
+        const playAgainDialog = document.getElementById('playAgainDialog');
+        const yesButton = document.getElementById('yesButton');
+        const noButton = document.getElementById('noButton');
+        const highScoreElement = document.getElementById('highScoreDisplay');
+        const gameOverMessageElement = document.getElementById('gameOverMessage');
+
+        // --- Darab Osztály ---
+        class Piece {
+            constructor(player, shapeIndex = null) {
+                this.shapeIndex = shapeIndex !== null ? shapeIndex : Math.floor(Math.random() * SHAPES.length);
+                this.shape = SHAPES[this.shapeIndex];
+                this.color = COLORS[this.shapeIndex];
+                this.player = player;
+                this.x = Math.floor(COLS / 2) - Math.floor(this.shape[0].length / 2);
+                this.y = 0;
+            }
+
+            draw() {
+                this.player.ctx.fillStyle = this.color;
+                this.shape.forEach((row, y) => {
+                    row.forEach((value, x) => {
+                        if (value) {
+                            this.player.ctx.fillRect(
+                                (this.x + x) * BLOCK_SIZE,
+                                (this.y + y) * BLOCK_SIZE,
+                                BLOCK_SIZE - 1,
+                                BLOCK_SIZE - 1
+                            );
+                        }
+                    });
+                });
+            }
+
+            drawNext() {
+                this.player.nextPieceCtx.fillStyle = '#000';
+                this.player.nextPieceCtx.fillRect(0, 0, this.player.nextPieceCanvas.width, this.player.nextPieceCanvas.height);
+                this.player.nextPieceCtx.fillStyle = this.color;
+                const offsetX = (4 - this.shape[0].length) * BLOCK_SIZE / 2;
+                const offsetY = (4 - this.shape.length) * BLOCK_SIZE / 2;
+                this.shape.forEach((row, y) => {
+                    row.forEach((value, x) => {
+                        if (value) {
+                            this.player.nextPieceCtx.fillRect(
+                                offsetX + x * BLOCK_SIZE,
+                                offsetY + y * BLOCK_SIZE,
+                                BLOCK_SIZE - 1,
+                                BLOCK_SIZE - 1
+                            );
+                        }
+                    });
+                });
+            }
+
+            canMove(offsetX, offsetY, newShape = this.shape) {
+                return newShape.every((row, y) => {
+                    return row.every((value, x) => {
+                        if (!value) return true;
+                        let newX = this.x + x + offsetX;
+                        let newY = this.y + y + offsetY;
+                        return (
+                            newX >= 0 && newX < COLS &&
+                            newY < ROWS &&
+                            (newY < 0 || !this.player.board[newY] || !this.player.board[newY][newX])
+                        );
+                    });
+                });
+            }
+
+            moveDown() {
+                if (this.canMove(0, 1)) {
+                    this.y++;
+                    return true;
+                }
+                return false;
+            }
+
+            moveLeft() {
+                if (this.canMove(-1, 0)) {
+                    this.x--;
+                    return true;
+                }
+                return false;
+            }
+
+            moveRight() {
+                if (this.canMove(1, 0)) {
+                    this.x++;
+                    return true;
+                }
+                return false;
+            }
+
+            rotate() {
+                const N = this.shape.length;
+                const M = this.shape[0].length;
+                const newShape = Array(M).fill(0).map(() => Array(N).fill(0));
+                for (let y = 0; y < N; y++) {
+                    for (let x = 0; x < M; x++) {
+                        if (this.shape[y][x]) {
+                            newShape[x][N - 1 - y] = this.shape[y][x];
+                        }
+                    }
+                }
+                let potentialX = this.x;
+                if (!this.canMove(0, 0, newShape)) {
+                    if (this.canMove(1, 0, newShape)) { potentialX++; }
+                    else if (this.canMove(-1, 0, newShape)) { potentialX--; }
+                    else if (this.canMove(2, 0, newShape)) { potentialX += 2; }
+                    else if (this.canMove(-2, 0, newShape)) { potentialX -= 2; }
+                    else { return; }
+                }
+                this.shape = newShape;
+                this.x = potentialX;
+            }
+        }
+
+        // --- Játék Logikai Függvények ---
+        function updateScore(player, lines) {
+            let points = 0;
+            switch(lines) {
+                case 1: points = 40; break;
+                case 2: points = 100; break;
+                case 3: points = 300; break;
+                case 4: points = 1200; break;
+            }
+            player.score += points;
+            player.scoreElement.textContent = `Score: ${player.score}`;
+            if (player.score > highScore) {
+                highScore = player.score;
+                updateHighScoreDisplay();
+            }
+        }
+
+        function checkLines(player) {
+            let linesCleared = 0;
+            for (let y = ROWS - 1; y >= 0; y--) {
+                if (player.board[y].every(cell => cell !== 0)) {
+                    player.board.splice(y, 1);
+                    player.board.unshift(Array(COLS).fill(0));
+                    linesCleared++;
+                    y++;
+                }
+            }
+            if (linesCleared > 0) {
+                updateScore(player, linesCleared);
+            }
+        }
+
+        function placePiece(player) {
+            if (!player.currentPiece) {
+                console.warn(`placePiece called for player, but no currentPiece exists.`);
+                return;
+            }
+
+            player.currentPiece.shape.forEach((row, y) => {
+                row.forEach((value, x) => {
+                    if (value && (player.currentPiece.y + y >= 0)) {
+                        player.board[player.currentPiece.y + y][player.currentPiece.x + x] = player.currentPiece.color;
+                    }
+                });
+            });
+
+            checkLines(player);
+
+            // A következő darabot az aktuálissá tesszük, és új következő darabot generálunk
+            player.currentPiece = player.nextPiece;
+            const nextShapeIndex = Math.floor(Math.random() * SHAPES.length);
+            player.nextPiece = new Piece(player, nextShapeIndex);
+            player.nextPiece.drawNext();
+
+            // Ellenőrizzük, hogy az új darab elhelyezhető-e
+            if (!player.currentPiece.canMove(0, 0)) {
+                player.gameOver = true;
+                player.currentPiece = null;
+                player.nextPiece = null;
+                if (player1.gameOver && player2.gameOver) {
+                    endGame();
+                } else {
+                    drawBoard(player);
+                }
+            }
+        }
+
+        function updatePlayer(player, deltaTime) {
+            if (player.gameOver || !player.currentPiece) return;
+            player.lastMoveTime += deltaTime;
+            if (player.lastMoveTime >= gameSpeed) {
+                if (!player.currentPiece.moveDown()) {
+                    placePiece(player);
+                } else {
+                    player.lastMoveTime = 0;
+                }
+            }
+        }
+
+        function drawBoard(player) {
+            player.ctx.fillStyle = '#000';
+            player.ctx.fillRect(0, 0, player.canvas.width, player.canvas.height);
+            player.board.forEach((row, y) => {
+                row.forEach((color, x) => {
+                    if (color !== 0) {
+                        player.ctx.fillStyle = color;
+                        player.ctx.fillRect(x * BLOCK_SIZE, y * BLOCK_SIZE, BLOCK_SIZE - 1, BLOCK_SIZE - 1);
+                    }
+                });
+            });
+            if (player.currentPiece && !player.gameOver) {
+                player.currentPiece.draw();
+            }
+            if (player.gameOver) {
+                player.ctx.fillStyle = 'rgba(50, 50, 50, 0.75)';
+                player.ctx.fillRect(0, player.canvas.height / 2 - 30, player.canvas.width, 60);
+                player.ctx.font = '30px Arial';
+                player.ctx.fillStyle = 'white';
+                player.ctx.textAlign = 'center';
+                player.ctx.fillText('Game Over', player.canvas.width / 2, player.canvas.height / 2 + 10);
+                // Következő elem vászon törlése
+                player.nextPieceCtx.fillStyle = '#000';
+                player.nextPieceCtx.fillRect(0, 0, player.nextPieceCanvas.width, player.nextPieceCanvas.height);
+            }
+        }
+
+        function updateHighScoreDisplay() {
+            highScoreElement.textContent = `High Score: ${highScore} - ${highScoreName}`;
+        }
+
+        function promptForHighScoreName() {
+            try {
+                console.log('promptForHighScoreName called');
+                let currentTopScore = Math.max(player1.score, player2.score);
+                let storedHighScore = parseInt(localStorage.getItem('tetrisHighScore') || '0', 10);
+                console.log(`currentTopScore: ${currentTopScore}, storedHighScore: ${storedHighScore}`);
+                if (isNaN(storedHighScore)) storedHighScore = 0;
+
+                if (currentTopScore > storedHighScore) {
+                    console.log('Prompting for high score name');
+                    let playerName = window.prompt(`Új Magas Pontszám: ${currentTopScore}!\nAdd meg a neved (vagy hagyd üresen):`, '');
+                    console.log(`playerName: ${playerName}`);
+                    if (playerName === null) {
+                        // Felhasználó megszakította a promptot
+                        highScore = currentTopScore;
+                        highScoreName = "Névtelen";
+                    } else if (playerName && playerName.trim() !== '') {
+                        highScore = currentTopScore;
+                        highScoreName = playerName.trim();
+                    } else {
+                        highScore = currentTopScore;
+                        highScoreName = "Névtelen";
+                    }
+                    localStorage.setItem('tetrisHighScore', highScore.toString());
+                    localStorage.setItem('tetrisHighScoreName', highScoreName);
+                    updateHighScoreDisplay();
+                } else {
+                    console.log('No new high score');
+                }
+            } catch (error) {
+                console.error('Hiba a promptForHighScoreName-ban:', error);
+                // Tartalék megoldás, ha a prompt nem működik
+                highScore = Math.max(player1.score, player2.score);
+                highScoreName = "Névtelen";
+                localStorage.setItem('tetrisHighScore', highScore.toString());
+                localStorage.setItem('tetrisHighScoreName', highScoreName);
+                updateHighScoreDisplay();
+            }
+        }
+
+        function endGame() {
+            gameRunning = false;
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+                animationFrameId = null;
+            }
+            let winnerMessage = "";
+            if (player1.score > player2.score) { winnerMessage = "Játékos 1 nyert!"; } // player1 = Q,W,E,S
+            else if (player2.score > player1.score) { winnerMessage = "Játékos 2 nyert!"; } // player2 = Nyilak
+            else { winnerMessage = "Döntetlen!"; }
+
+            let message = `Játék vége! ${winnerMessage}`;
+            message += `\nVégső pontszámok: J1: ${player1.score}, J2: ${player2.score}`;
+            gameOverMessageElement.innerText = message;
+
+            promptForHighScoreName();
+            playAgainDialog.style.display = 'block';
+        }
+
+        function resetGame() {
+            [player1, player2].forEach(player => {
+                player.board = Array(ROWS).fill().map(() => Array(COLS).fill(0));
+                player.score = 0;
+                player.gameOver = false;
+                const shapeIndex = Math.floor(Math.random() * SHAPES.length);
+                player.currentPiece = new Piece(player, shapeIndex);
+                const nextShapeIndex = Math.floor(Math.random() * SHAPES.length);
+                player.nextPiece = new Piece(player, nextShapeIndex);
+                player.nextPiece.drawNext();
+                player.scoreElement.textContent = `Score: 0`;
+                player.lastMoveTime = 0;
+            });
+            gameRunning = true;
+            playAgainDialog.style.display = 'none';
+            lastTime = 0;
+            updateHighScoreDisplay();
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+            }
+            animationFrameId = requestAnimationFrame(gameLoop);
+        }
+
+        function gameLoop(timestamp) {
+            if (!gameRunning) return;
+            if (!lastTime) lastTime = timestamp;
+            const deltaTime = timestamp - lastTime;
+            lastTime = timestamp;
+
+            updatePlayer(player1, deltaTime);
+            updatePlayer(player2, deltaTime);
+
+            drawBoard(player1);
+            drawBoard(player2);
+
+            animationFrameId = requestAnimationFrame(gameLoop);
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (['ArrowUp', 'ArrowDown'].includes(e.key)) {
+                e.preventDefault();
+            }
+            if (!gameRunning) return;
+            let playerToControl = null;
+            let action = null;
+
+            if (['q', 'Q', 'w', 'W', 'e', 'E', 's', 'S'].includes(e.key)) {
+                if (!player1.gameOver) { playerToControl = player1; } else { return; }
+                let keyLower = e.key.toLowerCase();
+                switch(keyLower) {
+                    case 'q': action = 'left'; break;
+                    case 'e': action = 'right'; break;
+                    case 's': action = 'down'; break;
+                    case 'w': action = 'rotate'; break;
+                }
+            }
+            else if (['ArrowLeft', 'ArrowRight', 'ArrowDown', 'ArrowUp'].includes(e.key)) {
+                if (!player2.gameOver) { playerToControl = player2; } else { return; }
+                switch(e.key) {
+                    case 'ArrowLeft': action = 'left'; break;
+                    case 'ArrowRight': action = 'right'; break;
+                    case 'ArrowDown': action = 'down'; break;
+                    case 'ArrowUp': action = 'rotate'; break;
+                }
+            } else { return; }
+
+            if (playerToControl && action) {
+                const piece = playerToControl.currentPiece;
+                if (!piece) { return; }
+
+                let moved = false;
+                switch (action) {
+                    case 'left': moved = piece.moveLeft(); break;
+                    case 'right': moved = piece.moveRight(); break;
+                    case 'down':
+                        if (!piece.moveDown()) { placePiece(playerToControl); }
+                        else { playerToControl.lastMoveTime = 0; moved = true; }
+                        break;
+                    case 'rotate': piece.rotate(); moved = true; break;
+                }
+                if (moved) { drawBoard(playerToControl); }
+            }
+        });
+
+        yesButton.addEventListener('click', () => { resetGame(); });
+        noButton.addEventListener('click', () => {
+            playAgainDialog.style.display = 'none';
+            try {
+                window.open('', '_self').close();
+            } catch {
+                // Ha nem engedi a böngésző, csak elrejti
+            }
+        });
+
+        function initGame() {
+            // Inicializáljuk a játékosokat
+            const shapeIndex1 = Math.floor(Math.random() * SHAPES.length);
+            const nextShapeIndex1 = Math.floor(Math.random() * SHAPES.length);
+            player1.currentPiece = new Piece(player1, shapeIndex1);
+            player1.nextPiece = new Piece(player1, nextShapeIndex1);
+            player1.nextPiece.drawNext();
+            player1.lastMoveTime = 0;
+
+            const shapeIndex2 = Math.floor(Math.random() * SHAPES.length);
+            const nextShapeIndex2 = Math.floor(Math.random() * SHAPES.length);
+            player2.currentPiece = new Piece(player2, shapeIndex2);
+            player2.nextPiece = new Piece(player2, nextShapeIndex2);
+            player2.nextPiece.drawNext();
+            player2.lastMoveTime = 0;
+
+            // Ellenőrizzük, hogy az első darabok elhelyezhetők-e
+            if (!player1.currentPiece.canMove(0, 0)) {
+                console.error("Játékos 1 nem tudja elhelyezni az első darabot. Ellenőrizd a tábla inicializálását.");
+                player1.gameOver = true;
+            }
+            if (!player2.currentPiece.canMove(0, 0)) {
+                console.error("Játékos 2 nem tudja elhelyezni az első darabot. Ellenőrizd a tábla inicializálását.");
+                player2.gameOver = true;
+            }
+
+            // Ha mindkét játékos kiesett az inicializáció során, valami nagyon nincs rendben
+            if (player1.gameOver && player2.gameOver) {
+                console.error("Mindkét játékos kiesett az inicializáció során. Megszakítás.");
+                return;
+            }
+
+            updateHighScoreDisplay();
+            drawBoard(player1);
+            drawBoard(player2);
+            lastTime = 0;
+            gameRunning = true;
+            animationFrameId = requestAnimationFrame(gameLoop);
+        }
+
+        initGame();
+    </script>
+</body>
+</html>

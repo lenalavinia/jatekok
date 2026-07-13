@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Kígyós Játék</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      background-color: #333;
+      color: white;
+    }
+    canvas {
+      border: 2px solid #fff;
+      background-color: #222;
+      display: block;
+      margin: 20px auto;
+    }
+    p {
+      font-size: 18px;
+    }
+    #newGamePrompt {
+      display: none;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background-color: rgba(0,0,0,0.85);
+      padding: 25px 35px;
+      border-radius: 12px;
+      box-shadow: 0 0 20px rgba(255,255,255,0.3);
+      text-align: center;
+      user-select: none;
+      color: white;
+      z-index: 1000;
+    }
+    #newGamePrompt p {
+      font-size: 22px;
+      margin-bottom: 20px;
+      font-weight: bold;
+    }
+    #newGamePrompt .button-container {
+      display: flex;
+      flex-direction: row;
+      gap: 20px;
+    }
+    #newGamePrompt button {
+      background-color: #3498db;
+      border: none;
+      padding: 15px 30px;
+      border-radius: 25px;
+      color: white;
+      font-size: 18px;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+      transition: all 0.3s ease;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    #newGamePrompt button:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+      background-color: #2ecc71;
+    }
+    #newGamePrompt button::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 0;
+      height: 0;
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      transition: width 0.6s ease, height 0.6s ease;
+    }
+    #newGamePrompt button:hover::before {
+      width: 300px;
+      height: 300px;
+    }
+    #newGamePrompt button .spinning-text {
+      display: inline-block;
+      transition: transform 0.3s ease;
+    }
+    #newGamePrompt button:hover .spinning-text {
+      animation: spinX 1s infinite linear;
+    }
+    @keyframes spinX {
+      0% {
+        transform: rotateX(0deg);
+      }
+      100% {
+        transform: rotateX(360deg);
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>Kígyós Játék</h1>
+  <canvas id="gameCanvas" width="400" height="400"></canvas>
+  <p>Használj nyilakat a kígyó irányításához!</p>
+  <p id="score">Pont: 0</p>
+  <p id="highScore">Legjobb pontszám: 0 (Név: Nincs)</p>
+
+  <div id="newGamePrompt">
+    <p>Új játék?</p>
+    <div class="button-container">
+      <button id="yesButton"><span class="spinning-text">Igen</span></button>
+      <button id="noButton"><span class="spinning-text">Nem</span></button>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const scale = 20;
+    const rows = canvas.height / scale;
+    const columns = canvas.width / scale;
+
+    let snake;
+    let fruit;
+    let score = 0;
+    let intervalId;
+    let gameOverFlag = false;
+
+    let highScore = localStorage.getItem('highScore') ? parseInt(localStorage.getItem('highScore')) : 0;
+    let highScoreName = localStorage.getItem('highScoreName') || "Nincs";
+    document.getElementById('highScore').innerText = `Legjobb pontszám: ${highScore} (Név: ${highScoreName})`;
+
+    const newGamePrompt = document.getElementById('newGamePrompt');
+    document.getElementById('yesButton').addEventListener('click', () => {
+      newGamePrompt.style.display = 'none';
+      resetGame();
+    });
+    document.getElementById('noButton').addEventListener('click', () => {
+      newGamePrompt.style.display = 'none';
+      try {
+        window.open('', '_self').close();
+      } catch {
+        // Ha nem engedi a böngésző, csak elrejti
+      }
+    });
+
+    function startGame() {
+      snake = new Snake();
+      fruit = new Fruit();
+      fruit.randomizePosition();
+      intervalId = window.setInterval(gameLoop, 200);
+    }
+
+    function randomColor() {
+      const randomColor = Math.floor(Math.random() * 16777215).toString(16);
+      return `#${randomColor.padStart(6, '0')}`;
+    }
+
+    function gameLoop() {
+      if (gameOverFlag) return;
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      fruit.draw();
+      snake.update();
+      snake.draw();
+
+      if (snake.eat(fruit)) {
+        fruit.randomizePosition();
+        score++;
+        document.getElementById('score').innerText = `Pont: ${score}`;
+        snake.color = randomColor();
+        fruit.color = randomColor();
+      }
+
+      if (snake.checkCollision()) {
+        clearInterval(intervalId);
+        gameOverFlag = true;
+
+        if (score > highScore) {
+          const playerName = prompt("Gratulálok! Megdöntötted a rekordot! Add meg a neved:");
+          highScoreName = playerName ? playerName : "Név nélkül";
+          highScore = score;
+          localStorage.setItem('highScore', highScore);
+          localStorage.setItem('highScoreName', highScoreName);
+        }
+
+        document.getElementById('highScore').innerText = `Legjobb pontszám: ${highScore} (Név: ${highScoreName})`;
+
+        // Játék újraindítási kérdés
+        newGamePrompt.style.display = "block";
+      }
+    }
+
+    function resetGame() {
+      snake.reset();
+      score = 0;
+      gameOverFlag = false;
+      document.getElementById('score').innerText = `Pont: ${score}`;
+      fruit.randomizePosition();
+      clearInterval(intervalId);
+      intervalId = setInterval(gameLoop, 200);
+    }
+
+    function Snake() {
+      this.body = [{x: 5, y: 5}];
+      this.direction = 'right';
+      this.length = 1;
+      this.color = 'green';
+
+      this.update = function() {
+        const head = {...this.body[0]};
+        if (this.direction === 'right') head.x++;
+        if (this.direction === 'left') head.x--;
+        if (this.direction === 'up') head.y--;
+        if (this.direction === 'down') head.y++;
+
+        this.body.unshift(head);
+        if (this.body.length > this.length) {
+          this.body.pop();
+        }
+      };
+
+      this.draw = function() {
+        ctx.fillStyle = this.color;
+        this.body.forEach(segment => {
+          ctx.fillRect(segment.x * scale, segment.y * scale, scale, scale);
+        });
+      };
+
+      this.eat = function(fruit) {
+        const head = this.body[0];
+        return head.x === fruit.x && head.y === fruit.y ? (++this.length, true) : false;
+      };
+
+      this.checkCollision = function() {
+        const head = this.body[0];
+        if (head.x < 0 || head.x >= columns || head.y < 0 || head.y >= rows) return true;
+        for (let i = 1; i < this.body.length; i++) {
+          if (this.body[i].x === head.x && this.body[i].y === head.y) return true;
+        }
+        return false;
+      };
+
+      this.reset = function() {
+        this.body = [{x: 5, y: 5}];
+        this.direction = 'right';
+        this.length = 1;
+        this.color = 'green';
+      };
+    }
+
+    function Fruit() {
+      this.x = 0;
+      this.y = 0;
+      this.color = 'red';
+
+      this.randomizePosition = function() {
+        this.x = Math.floor(Math.random() * columns);
+        this.y = Math.floor(Math.random() * rows);
+      };
+
+      this.draw = function() {
+        ctx.fillStyle = this.color;
+        ctx.fillRect(this.x * scale, this.y * scale, scale, scale);
+      };
+    }
+
+    window.addEventListener('keydown', function(e) {
+      if (e.key === 'ArrowUp' && snake.direction !== 'down') snake.direction = 'up';
+      if (e.key === 'ArrowDown' && snake.direction !== 'up') snake.direction = 'down';
+      if (e.key === 'ArrowLeft' && snake.direction !== 'right') snake.direction = 'left';
+      if (e.key === 'ArrowRight' && snake.direction !== 'left') snake.direction = 'right';
+    });
+
+    startGame();
+  </script>
+</body>
+</html>

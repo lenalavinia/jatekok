@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Átugráló</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+            font-family: Arial, sans-serif;
+        }
+        #board {
+            text-align: center;
+        }
+        #controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            width: 100%;
+            max-width: 420px;
+        }
+        table {
+            border-collapse: collapse;
+            margin: 0 auto;
+        }
+        .square {
+            width: 50px;
+            height: 50px;
+            border: 1px solid black;
+            background-color: white;
+        }
+        .piece {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: #3498db;
+            margin: 5px auto;
+            cursor: grab;
+        }
+        .selected {
+            background-color: yellow !important;
+        }
+        .possible {
+            background-color: green !important;
+        }
+        .drag-over {
+            background-color: lightgreen !important;
+        }
+        button {
+            background-color: #3498db;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 25px;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+        }
+        button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+            background-color: #2ecc71;
+        }
+        .spinning-text {
+            display: inline-block;
+            transition: transform 0.3s ease;
+        }
+        button:hover .spinning-text {
+            animation: spinX 1s infinite linear;
+        }
+        @keyframes spinX {
+            0% { transform: rotateX(0deg); }
+            100% { transform: rotateX(360deg); }
+        }
+        #restart-div {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(255, 255, 255, 0.9);
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+        #restart-div p {
+            margin: 10px 0;
+            font-size: 20px;
+        }
+        #restart-buttons {
+            display: flex;
+            gap: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div id="board">
+        <div id="controls">
+            <button onclick="undoLastMove()"><span class="spinning-text">Vissza</span></button>
+            <button onclick="location.reload()"><span class="spinning-text">Játék újrakezdése</span></button>
+        </div>
+        <div id="game-table"></div>
+    </div>
+
+    <div id="restart-div">
+        <p>Új játék?</p>
+        <div id="restart-buttons">
+            <button onclick="restartGame()"><span class="spinning-text">Igen</span></button>
+            <button onclick="window.close()"><span class="spinning-text">Nem</span></button>
+        </div>
+    </div>
+
+    <audio id="fanfare" src="fanfare.mp3"></audio>
+
+    <script>
+        const BOARD_SIZE = 8;
+        const board = Array.from({ length: BOARD_SIZE }, () => Array(BOARD_SIZE).fill(0));
+        const table = document.createElement('table');
+        const cells = Array.from({ length: BOARD_SIZE }, () => Array(BOARD_SIZE).fill(null));
+        const fanfare = document.getElementById('fanfare');
+        const restartDiv = document.getElementById('restart-div');
+        const moveHistory = [];
+
+        const directions = [
+            { dx: 1, dy: 1 },
+            { dx: 1, dy: -1 },
+            { dx: -1, dy: 1 },
+            { dx: -1, dy: -1 }
+        ];
+
+        function isDark(x, y) {
+            return (x + y) % 2 === 0;
+        }
+
+        function isValidPosition(x, y) {
+            return x >= 0 && x < BOARD_SIZE && y >= 0 && y < BOARD_SIZE;
+        }
+
+        function createBoard() {
+            for (let y = BOARD_SIZE - 1; y >= 0; y--) {
+                const tr = document.createElement('tr');
+                for (let x = 0; x < BOARD_SIZE; x++) {
+                    const td = document.createElement('td');
+                    td.className = `square`;
+                    td.dataset.x = x;
+                    td.dataset.y = y;
+                    td.addEventListener('click', handleClick);
+                    tr.appendChild(td);
+                    cells[y][x] = td;
+                }
+                table.appendChild(tr);
+            }
+            document.getElementById('game-table').appendChild(table);
+        }
+
+        function placePieces() {
+            for (let y = 0; y < BOARD_SIZE; y++) {
+                for (let x = 0; x < BOARD_SIZE; x++) {
+                    if (isDark(x, y)) {
+                        board[y][x] = 1;
+                        addPieceToCell(x, y);
+                    }
+                }
+            }
+        }
+
+        function addPieceToCell(x, y) {
+            const div = document.createElement('div');
+            div.className = 'piece';
+            cells[y][x].innerHTML = '';
+            cells[y][x].appendChild(div);
+        }
+
+        function removePieceFromCell(x, y) {
+            cells[y][x].innerHTML = '';
+        }
+
+        function randomlyRemoveOne() {
+            const positions = [];
+            for (let y = 0; y < BOARD_SIZE; y++) {
+                for (let x = 0; x < BOARD_SIZE; x++) {
+                    if (board[y][x] === 1) {
+                        positions.push({ x, y });
+                    }
+                }
+            }
+            if (positions.length > 0) {
+                const randomIndex = Math.floor(Math.random() * positions.length);
+                const { x, y } = positions[randomIndex];
+                board[y][x] = 0;
+                removePieceFromCell(x, y);
+            }
+        }
+
+        let selected = null;
+
+        function clearHighlights() {
+            for (let y = 0; y < BOARD_SIZE; y++) {
+                for (let x = 0; x < BOARD_SIZE; x++) {
+                    cells[y][x].classList.remove('selected', 'possible', 'drag-over');
+                }
+            }
+        }
+
+        function getPossibleCaptures(sx, sy) {
+            const possibles = [];
+            directions.forEach(dir => {
+                const tx = sx + dir.dx;
+                const ty = sy + dir.dy;
+                const nextTx = sx + 2 * dir.dx;
+                const nextTy = sy + 2 * dir.dy;
+                if (isValidPosition(tx, ty) && isValidPosition(nextTx, nextTy) &&
+                    board[ty][tx] === 1 && board[nextTy][nextTx] === 0 && isDark(nextTx, nextTy)) {
+                    possibles.push({ tx: nextTx, ty: nextTy, jx: tx, jy: ty });
+                }
+            });
+            return possibles;
+        }
+
+        function highlightPossibleCaptures(sx, sy) {
+            const possibles = getPossibleCaptures(sx, sy);
+            possibles.forEach(p => {
+                cells[p.ty][p.tx].classList.add('possible');
+            });
+        }
+
+        function handleClick(event) {
+            const td = event.currentTarget;
+            const x = parseInt(td.dataset.x);
+            const y = parseInt(td.dataset.y);
+
+            if (board[y][x] === 1) {
+                const possibles = getPossibleCaptures(x, y);
+                if (possibles.length === 1) {
+                    const target = possibles[0];
+                    board[y][x] = 0;
+                    removePieceFromCell(x, y);
+                    board[target.jy][target.jx] = 0;
+                    removePieceFromCell(target.jx, target.jy);
+                    board[target.ty][target.tx] = 1;
+                    addPieceToCell(target.tx, target.ty);
+                    moveHistory.push({
+                        from: { x, y },
+                        jumped: { x: target.jx, y: target.jy },
+                        to: { x: target.tx, y: target.ty }
+                    });
+                    checkGameOver();
+                    clearHighlights();
+                    selected = null;
+                } else if (possibles.length > 1) {
+                    clearHighlights();
+                    selected = { x, y };
+                    td.classList.add('selected');
+                    highlightPossibleCaptures(x, y);
+                } else {
+                    clearHighlights();
+                    selected = null;
+                }
+            } else if (selected) {
+                const possibles = getPossibleCaptures(selected.x, selected.y);
+                const target = possibles.find(p => p.tx === x && p.ty === y);
+                if (target) {
+                    board[selected.y][selected.x] = 0;
+                    removePieceFromCell(selected.x, selected.y);
+                    board[target.jy][target.jx] = 0;
+                    removePieceFromCell(target.jx, target.jy);
+                    board[y][x] = 1;
+                    addPieceToCell(x, y);
+                    moveHistory.push({
+                        from: { x: selected.x, y: selected.y },
+                        jumped: { x: target.jx, y: target.jy },
+                        to: { x, y }
+                    });
+                    checkGameOver();
+                }
+                clearHighlights();
+                selected = null;
+            }
+        }
+
+        function undoLastMove() {
+            if (moveHistory.length === 0) return;
+            const lastMove = moveHistory.pop();
+            board[lastMove.to.y][lastMove.to.x] = 0;
+            removePieceFromCell(lastMove.to.x, lastMove.to.y);
+            board[lastMove.jumped.y][lastMove.jumped.x] = 1;
+            addPieceToCell(lastMove.jumped.x, lastMove.jumped.y);
+            board[lastMove.from.y][lastMove.from.x] = 1;
+            addPieceToCell(lastMove.from.x, lastMove.from.y);
+            clearHighlights();
+        }
+
+        function countRemaining() {
+            let count = 0;
+            for (let y = 0; y < BOARD_SIZE; y++) {
+                for (let x = 0; x < BOARD_SIZE; x++) {
+                    if (board[y][x] === 1) count++;
+                }
+            }
+            return count;
+        }
+
+        function hasAnyMoves() {
+            for (let y = 0; y < BOARD_SIZE; y++) {
+                for (let x = 0; x < BOARD_SIZE; x++) {
+                    if (board[y][x] === 1 && getPossibleCaptures(x, y).length > 0) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        function customAlert(message) {
+            fanfare.play();
+            alert(message);
+        }
+
+        function showRestartPrompt() {
+            restartDiv.style.display = 'flex';
+        }
+
+        function restartGame() {
+            board.forEach(row => row.fill(0));
+            cells.forEach(row => row.forEach(cell => cell.innerHTML = ''));
+            moveHistory.length = 0;
+            placePieces();
+            randomlyRemoveOne();
+            clearHighlights();
+            selected = null;
+            restartDiv.style.display = 'none';
+            fanfare.pause();
+            fanfare.currentTime = 0;
+        }
+
+        function checkGameOver() {
+            if (!hasAnyMoves()) {
+                const remaining = countRemaining();
+                if (remaining === 1) {
+                    customAlert('Gratulálunk! Csak egy báb maradt - legjobb eset!');
+                } else {
+                    customAlert(`Játék vége! ${remaining} báb maradt.`);
+                }
+                showRestartPrompt();
+            }
+        }
+
+        createBoard();
+        placePieces();
+        randomlyRemoveOne();
+    </script>
+</body>
+</html>

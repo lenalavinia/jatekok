@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Matematikai Átlag Számító</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin-top: 50px;
+        }
+        input {
+            margin: 10px;
+            padding: 8px;
+            width: 60px;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #result {
+            margin-top: 20px;
+            font-size: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Matematikai Átlag Számító</h1>
+    <p>Írd be három számot:</p>
+    
+    <input type="number" id="num1" placeholder="Szám 1">
+    <input type="number" id="num2" placeholder="Szám 2">
+    <input type="number" id="num3" placeholder="Szám 3">
+    
+    <br>
+    <button onclick="calculateAverage()">Átlag kiszámítása</button>
+    
+    <p id="result"></p>
+
+    <script>
+        function calculateAverage() {
+            const num1 = parseFloat(document.getElementById('num1').value);
+            const num2 = parseFloat(document.getElementById('num2').value);
+            const num3 = parseFloat(document.getElementById('num3').value);
+            
+            if (isNaN(num1) || isNaN(num2) || isNaN(num3)) {
+                document.getElementById('result').innerText = "Kérlek, adj meg három érvényes számot!";
+            } else {
+                const average = (num1 + num2 + num3) / 3;
+                document.getElementById('result').innerText = "A három szám átlag: " + average.toFixed(2);
+            }
+        }
+    </script>
+</body>
+</html>

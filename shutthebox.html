@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shut the box</title>
+    <style>
+        body {
+            background-color: #ffffff;
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+
+        h1 {
+            color: #000000;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+            margin-bottom: 40px;
+            animation: fadeIn 1s ease-in;
+        }
+
+        h2, h3 {
+            color: #333;
+        }
+
+        #game-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+
+        #tiles {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin: 20px 0;
+        }
+
+        .tile {
+            width: 50px;
+            height: 50px;
+            margin: 5px;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            cursor: pointer;
+            background-color: #3498db;
+            border: none;
+            border-radius: 25px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .tile:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+            background-color: #2ecc71;
+        }
+
+        .tile::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            transition: width 0.6s ease, height 0.6s ease;
+        }
+
+        .tile:hover::before {
+            width: 300px;
+            height: 300px;
+        }
+
+        .tile.shut {
+            display: none;
+        }
+
+        #dice {
+            margin: 20px 0;
+        }
+
+        .die {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 50px;
+            height: 50px;
+            background-color: #fff;
+            border: 2px solid #000;
+            border-radius: 5px;
+            margin: 0 10px;
+            position: relative;
+        }
+
+        .dot {
+            width: 10px;
+            height: 10px;
+            background-color: black;
+            border-radius: 50%;
+            position: absolute;
+        }
+
+        .die[data-value="1"] .dot:nth-child(1) { top: 20px; left: 20px; }
+        .die[data-value="2"] .dot:nth-child(1) { top: 10px; left: 10px; }
+        .die[data-value="2"] .dot:nth-child(2) { bottom: 10px; right: 10px; }
+        .die[data-value="3"] .dot:nth-child(1) { top: 10px; left: 10px; }
+        .die[data-value="3"] .dot:nth-child(2) { top: 20px; left: 20px; }
+        .die[data-value="3"] .dot:nth-child(3) { bottom: 10px; right: 10px; }
+        .die[data-value="4"] .dot:nth-child(1) { top: 10px; left: 10px; }
+        .die[data-value="4"] .dot:nth-child(2) { top: 10px; right: 10px; }
+        .die[data-value="4"] .dot:nth-child(3) { bottom: 10px; left: 10px; }
+        .die[data-value="4"] .dot:nth-child(4) { bottom: 10px; right: 10px; }
+        .die[data-value="5"] .dot:nth-child(1) { top: 10px; left: 10px; }
+        .die[data-value="5"] .dot:nth-child(2) { top: 10px; right: 10px; }
+        .die[data-value="5"] .dot:nth-child(3) { top: 20px; left: 20px; }
+        .die[data-value="5"] .dot:nth-child(4) { bottom: 10px; left: 10px; }
+        .die[data-value="5"] .dot:nth-child(5) { bottom: 10px; right: 10px; }
+        .die[data-value="6"] .dot:nth-child(1) { top: 10px; left: 10px; }
+        .die[data-value="6"] .dot:nth-child(2) { top: 10px; right: 10px; }
+        .die[data-value="6"] .dot:nth-child(3) { top: 20px; left: 10px; }
+        .die[data-value="6"] .dot:nth-child(4) { top: 20px; right: 10px; }
+        .die[data-value="6"] .dot:nth-child(5) { bottom: 10px; left: 10px; }
+        .die[data-value="6"] .dot:nth-child(6) { bottom: 10px; right: 10px; }
+
+        button {
+            background-color: #3498db;
+            border: none;
+            padding: 15px 30px;
+            margin: 10px;
+            border-radius: 25px;
+            color: white;
+            font-size: 18px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        button:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+            background-color: #2ecc71;
+        }
+
+        button::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            transition: width 0.6s ease, height 0.6s ease;
+        }
+
+        button:hover::before {
+            width: 300px;
+            height: 300px;
+        }
+
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        button:disabled:hover {
+            background-color: #cccccc;
+            transform: none;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        button:disabled:hover::before {
+            width: 0;
+            height: 0;
+        }
+
+        .spinning-text {
+            display: inline-block;
+            transition: transform 0.3s ease;
+        }
+
+        button:hover .spinning-text, .tile:hover .spinning-text {
+            animation: spinX 1s infinite linear;
+        }
+
+        @keyframes spinX {
+            0% {
+                transform: rotateX(0deg);
+            }
+            100% {
+                transform: rotateX(360deg);
+            }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        #scoreboard {
+            margin-top: 20px;
+        }
+
+        #player-setup {
+            margin-bottom: 20px;
+        }
+
+        select {
+            padding: 5px;
+            font-size: 16px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            margin: 5px;
+        }
+
+        label {
+            font-size: 16px;
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <h1>Shut the box</h1>
+        <div id="player-setup">
+            <label for="player-count">Hány játékos játszana? (1-4):</label>
+            <select id="player-count">
+                <option value="1">1 játékos</option>
+                <option value="2">2 játékos</option>
+                <option value="3">3 játékos</option>
+                <option value="4">4 játékos</option>
+            </select>
+            <br><br>
+            <label for="dice-count">Hány kockával játszol? (2 vagy 3):</label>
+            <select id="dice-count">
+                <option value="2">2 kocka (1-12)</option>
+                <option value="3">3 kocka (1-18)</option>
+            </select>
+            <br><br>
+            <button onclick="startGame()"><span class="spinning-text">Játék indítása</span></button>
+        </div>
+        <div id="game-area" style="display: none;">
+            <h2 id="current-player">1. játékos köre</h2>
+            <div id="dice">
+                <span class="die" id="die1"></span>
+                <span class="die" id="die2"></span>
+                <span class="die" id="die3"></span>
+                <div>Összeg: <span id="dice-sum">0</span></div>
+            </div>
+            <button id="roll-dice" onclick="rollDice()"><span class="spinning-text">Kocka dobása</span></button>
+            <div id="tiles"></div>
+            <button id="end-turn" onclick="endTurn()" disabled><span class="spinning-text">OK</span></button>
+            <div id="scoreboard">
+                <h3>Pontszámok</h3>
+                <div id="scores"></div>
+            </div>
+            <button id="new-game" onclick="newGame()" style="display: none;"><span class="spinning-text">Új játék</span></button>
+        </div>
+    </div>
+
+    <script>
+        let numPlayers = 0;
+        let numDice = 0;
+        let maxTile = 0;
+        let currentPlayer = 1;
+        let players = [];
+        let dice = [];
+        let selectedTiles = [];
+        let gameOver = false;
+
+        const playerColors = [
+            { base: '#4682B4', selected: '#FF4500' }, // Kék -> Élénk narancs
+            { base: '#DC143C', selected: '#00FF00' }, // Piros -> Élénk zöld
+            { base: '#32CD32', selected: '#FF00FF' }, // Zöld -> Élénk lila
+            { base: '#FFD700', selected: '#00FFFF' }  // Sárga -> Élénk cián
+        ];
+
+        function startGame() {
+            numPlayers = parseInt(document.getElementById('player-count').value);
+            if (numPlayers < 1 || numPlayers > 4) {
+                alert("Kérlek, válassz 1 és 4 közötti játékosszámot!");
+                return;
+            }
+
+            numDice = parseInt(document.getElementById('dice-count').value);
+            maxTile = numDice === 2 ? 12 : 18;
+            dice = Array(numDice).fill(0);
+
+            players = [];
+            for (let i = 1; i <= numPlayers; i++) {
+                const initialScore = (maxTile * (maxTile + 1)) / 2;
+                players.push({ id: i, score: initialScore, usedNumbers: new Set() });
+            }
+
+            gameOver = false;
+            currentPlayer = 1;
+            selectedTiles = [];
+            document.getElementById('player-setup').style.display = 'none';
+            document.getElementById('game-area').style.display = 'block';
+            document.getElementById('current-player').innerText = `1. játékos köre`;
+            document.getElementById('roll-dice').disabled = false;
+            document.getElementById('end-turn').disabled = true;
+            document.getElementById('new-game').style.display = 'none';
+            document.getElementById('die1').innerHTML = '';
+            document.getElementById('die2').innerHTML = '';
+            document.getElementById('die3').innerHTML = '';
+            document.getElementById('die3').style.display = numDice === 3 ? 'inline-flex' : 'none';
+            document.getElementById('dice-sum').innerText = '0';
+
+            updateScoreboard();
+            initTiles();
+        }
+
+        function initTiles() {
+            const tilesDiv = document.getElementById('tiles');
+            tilesDiv.innerHTML = '';
+            for (let i = 1; i <= maxTile; i++) {
+                const tile = document.createElement('div');
+                tile.className = 'tile';
+                tile.id = `tile-${i}`;
+                tile.innerHTML = `<span class="spinning-text">${i}</span>`;
+                tile.onclick = () => toggleTile(i);
+                tilesDiv.appendChild(tile);
+            }
+            updateTiles();
+        }
+
+        function rollDice() {
+            if (gameOver) return;
+            document.getElementById('roll-dice').disabled = true;
+
+            let animationCount = 0;
+            const animationInterval = setInterval(() => {
+                for (let i = 0; i < numDice; i++) {
+                    const dieElement = document.getElementById(`die${i + 1}`);
+                    const randomValue = Math.floor(Math.random() * 6) + 1;
+                    updateDieDots(dieElement, randomValue);
+                }
+                animationCount++;
+                if (animationCount >= 10) {
+                    clearInterval(animationInterval);
+                    finishRoll();
+                }
+            }, 100);
+        }
+
+        function finishRoll() {
+            for (let i = 0; i < numDice; i++) {
+                dice[i] = Math.floor(Math.random() * 6) + 1;
+                const dieElement = document.getElementById(`die${i + 1}`);
+                updateDieDots(dieElement, dice[i]);
+            }
+            const sum = dice.reduce((a, b) => a + b, 0);
+            document.getElementById('dice-sum').innerText = sum;
+            document.getElementById('end-turn').disabled = true;
+            selectedTiles = [];
+            updateTiles();
+            checkPossibleMoves(sum);
+        }
+
+        function updateDieDots(dieElement, value) {
+            dieElement.innerHTML = '';
+            dieElement.setAttribute('data-value', value);
+            for (let i = 0; i < value; i++) {
+                const dot = document.createElement('div');
+                dot.className = 'dot';
+                dieElement.appendChild(dot);
+            }
+        }
+
+        function toggleTile(num) {
+            if (gameOver || document.getElementById('roll-dice').disabled === false) return;
+            const player = players[currentPlayer - 1];
+            if (player.usedNumbers.has(num)) return;
+
+            const tileIndex = selectedTiles.indexOf(num);
+            if (tileIndex === -1) {
+                const potentialSum = selectedTiles.reduce((a, b) => a + b, 0) + num;
+                const diceSum = dice.reduce((a, b) => a + b, 0);
+                if (potentialSum <= diceSum) {
+                    selectedTiles.push(num);
+                }
+            } else {
+                selectedTiles.splice(tileIndex, 1);
+            }
+
+            const sumSelected = selectedTiles.reduce((a, b) => a + b, 0);
+            const diceSum = dice.reduce((a, b) => a + b, 0);
+            if (sumSelected === diceSum) {
+                document.getElementById('end-turn').disabled = false;
+            } else {
+                document.getElementById('end-turn').disabled = true;
+            }
+            updateTiles();
+        }
+
+        function updateTiles() {
+            const player = players[currentPlayer - 1];
+            const playerColor = playerColors[currentPlayer - 1];
+            for (let i = 1; i <= maxTile; i++) {
+                const tile = document.getElementById(`tile-${i}`);
+                if (!tile) continue;
+                if (player.usedNumbers.has(i)) {
+                    tile.classList.add('shut');
+                } else {
+                    tile.classList.remove('shut');
+                    if (selectedTiles.includes(i)) {
+                        tile.style.backgroundColor = playerColor.selected;
+                    } else {
+                        tile.style.backgroundColor = playerColor.base;
+                    }
+                }
+            }
+        }
+
+        function checkPossibleMoves(diceSum) {
+            const player = players[currentPlayer - 1];
+            const availableNumbers = [];
+            for (let i = 1; i <= maxTile; i++) {
+                if (!player.usedNumbers.has(i)) {
+                    availableNumbers.push(i);
+                }
+            }
+
+            function canPartition(sum, numbers, used = new Set()) {
+                if (sum === 0) return true;
+                if (sum < 0) return false;
+
+                for (let i = 0; i < numbers.length; i++) {
+                    const num = numbers[i];
+                    if (used.has(num)) continue;
+                    used.add(num);
+                    if (canPartition(sum - num, numbers, used)) {
+                        return true;
+                    }
+                    used.delete(num);
+                }
+                return false;
+            }
+
+            const canMatch = canPartition(diceSum, availableNumbers);
+            if (!canMatch) {
+                endGame();
+            }
+        }
+
+        function endTurn(cannotMove = false) {
+            if (gameOver) return;
+
+            const player = players[currentPlayer - 1];
+            if (!cannotMove) {
+                selectedTiles.forEach(num => {
+                    player.usedNumbers.add(num);
+                });
+            }
+
+            const remainingNumbers = [];
+            for (let i = 1; i <= maxTile; i++) {
+                if (!player.usedNumbers.has(i)) {
+                    remainingNumbers.push(i);
+                }
+            }
+            player.score = remainingNumbers.reduce((sum, num) => sum + num, 0);
+            updateScoreboard();
+
+            currentPlayer = currentPlayer % numPlayers + 1;
+            document.getElementById('current-player').innerText = `${currentPlayer}. játékos köre`;
+            document.getElementById('roll-dice').disabled = false;
+            document.getElementById('end-turn').disabled = true;
+            document.getElementById('die1').innerHTML = '';
+            document.getElementById('die2').innerHTML = '';
+            document.getElementById('die3').innerHTML = '';
+            document.getElementById('dice-sum').innerText = '0';
+            selectedTiles = [];
+            updateTiles();
+        }
+
+        function endGame() {
+            gameOver = true;
+            document.getElementById('roll-dice').disabled = true;
+            document.getElementById('end-turn').disabled = true;
+            document.getElementById('new-game').style.display = 'block';
+
+            const scores = players.map(p => p.score);
+            const minScore = Math.min(...scores);
+            const winners = players.filter(p => p.score === minScore);
+
+            if (winners.length === 1) {
+                document.getElementById('current-player').innerText = `Játék vége! A ${winners[0].id}. játékos nyert ${minScore} ponttal!`;
+            } else {
+                const winnerIds = winners.map(w => w.id).join(", ");
+                document.getElementById('current-player').innerText = `Játék vége! Döntetlen! A nyertesek: ${winnerIds} (${minScore} ponttal)!`;
+            }
+        }
+
+        function updateScoreboard() {
+            const scoresDiv = document.getElementById('scores');
+            scoresDiv.innerHTML = '';
+            players.forEach(player => {
+                const p = document.createElement('p');
+                p.innerText = `${player.id}. játékos: ${player.score} pont`;
+                scoresDiv.appendChild(p);
+            });
+        }
+
+        function newGame() {
+            numPlayers = 0;
+            numDice = 0;
+            maxTile = 0;
+            currentPlayer = 1;
+            players = [];
+            gameOver = false;
+            selectedTiles = [];
+            document.getElementById('player-setup').style.display = 'block';
+            document.getElementById('game-area').style.display = 'none';
+            document.getElementById('new-game').style.display = 'none';
+            document.getElementById('tiles').innerHTML = '';
+        }
+    </script>
+</body>
+</html>
