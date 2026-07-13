@@ -1,0 +1,18 @@
+Serial key
+F7W35-Z8FWJ-MGEI4-BFO71-17FTA
+A5FRJ-2NB87-Z9CEV-UG3EH-HW7E8
+License code
+HDSB8-GTDVB-GMMMI-ACDZQ-AAP81
+GDC3P-IAZ53-DSHDA-Z5YUM-UI6E9
+
+// Key generation code for the free full version OCCT Pro
+function generateKey() {
+    let key = ;
+    const characters = ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789;
+    for (let i = 0; i < 16; i++) {
+        key += characters.charAt(Math.floor(Math.random()  characters.length));
+    }
+    return key + -OCCTPRO-FREE;
+}
+
+console.log(generateKey());

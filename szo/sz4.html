@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Magyar Szó Kitaláló</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+        input, button {
+            margin: 10px;
+            padding: 10px;
+            font-size: 16px;
+        }
+        button {
+            background-color: #ff6200;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #e55a00;
+        }
+        #torles:hover {
+            background-color: #b3b3b3;
+        }
+        #eredmeny {
+            margin-top: 20px;
+            font-size: 18px;
+        }
+        ul {
+            list-style-type: none;
+            padding: 0;
+            max-height: 400px;
+            overflow-y: auto;
+            font-size: 18px;
+        }
+        li {
+            padding: 5px;
+            background-color: #f9f9f9;
+            margin: 5px 0;
+            border-radius: 5px;
+            font-size: 18px;
+        }
+        a {
+            color: #ff6200;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        #karakterSzam {
+            font-size: 14px;
+            color: #666;
+            margin-top: -10px;
+        }
+        .pagination {
+            margin-top: 10px;
+        }
+        .pagination button {
+            margin: 0 5px;
+        }
+        .pagination button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Magyar Szó Kitaláló</h1>
+        <div>
+            <label for="szotarFile">Szótárfájl kiválasztása (pl. szavak.txt):</label><br>
+            <input type="file" id="szotarFile" accept=".txt">
+        </div>
+        <div>
+            <label for="minta">Minta (pl. ab***, csak betűk, nincs joker):</label><br>
+            <input type="text" id="minta" placeholder="ab***">
+            <p id="karakterSzam">0 betű</p>
+        </div>
+        <div>
+            <label for="betuk">Felhasználható betűk (pl. akb???, ? = bármely betű):</label><br>
+            <input type="text" id="betuk" placeholder="akb???">
+            <button onclick="addHungarianAlphabet()" style="background-color: #4CAF50;">Teljes magyar ABC</button>
+        </div>
+        <div>
+            <label for="szuksegesBetuk">Szükséges betűk (pl. t, vesszővel elválasztva, minden szónak tartalmaznia kell):</label><br>
+            <input type="text" id="szuksegesBetuk" placeholder="t">
+        </div>
+        <div>
+            <label for="kettosBetuk">Opcionális betűpárok (pl. cs,ly,qu, vesszővel elválasztva):</label><br>
+            <input type="text" id="kettosBetuk" placeholder="cs,ly,qu">
+        </div>
+        <button onclick="szavakKeresese()">Szavak keresése</button>
+        <button id="torles" onclick="torles()" style="background-color: #ccc;">Törlés</button>
+        <div>
+            <p><a href="http://users.atw.hu/fister74/szo/szavak.txt" download="szavak.txt">Szavak.txt letöltése</a></p>
+            <p><a href="http://users.atw.hu/fister74/szo/english.txt" download="english.txt">English.txt letöltése</a></p>
+            <p>(Töltsd fel a szavak.txt vagy english.txt fájlt a "Szótárfájl kiválasztása" mezőbe a játékhoz!)</p>
+        </div>
+        <div id="eredmeny"></div>
+        <div class="pagination">
+            <button id="elozo" onclick="elozoOldal()" disabled>Előző</button>
+            <button id="kovetkezo" onclick="kovetkezoOldal()" disabled>Következő</button>
+            <button onclick="ujKereses()">Új keresés</button>
+        </div>
+    </div>
+
+    <script>
+        let magyarSzavak = [];
+        let illeszkedoSzavak = [];
+        let jelenlegiOldal = 1;
+        const elemekPerOldal = 20;
+
+        // Betű előfordulások számlálása egy szóban
+        function countOccurrences(str, char) {
+            return str.split("").filter(c => c === char).length;
+        }
+
+        // Szótárfájl betöltése
+        document.getElementById("szotarFile").addEventListener("change", function(event) {
+            const file = event.target.files[0];
+            if (!file) {
+                document.getElementById("eredmeny").innerHTML = "Kérlek, válassz ki egy szótárfájlt!";
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const text = e.target.result;
+                magyarSzavak = text.split('\n').map(szo => szo.trim().toLowerCase()).filter(szo => szo);
+                document.getElementById("eredmeny").innerHTML = "Szótár betöltve, most már kereshetsz! (" + magyarSzavak.length + " szó)";
+            };
+            reader.onerror = function() {
+                document.getElementById("eredmeny").innerHTML = "Hiba a szótárfájl beolvasása közben!";
+            };
+            reader.readAsText(file, "UTF-8");
+        });
+
+        // Eredmények megjelenítése az aktuális oldalon
+        function renderEredmeny() {
+            const kezdoIndex = (jelenlegiOldal - 1) * elemekPerOldal;
+            const vegzoIndex = kezdoIndex + elemekPerOldal;
+            const jelenlegiSzavak = illeszkedoSzavak.slice(kezdoIndex, vegzoIndex);
+
+            if (illeszkedoSzavak.length > 0) {
+                const lista = jelenlegiSzavak.map(szo => `<li>${szo}</li>`).join("");
+                document.getElementById("eredmeny").innerHTML = 
+                    `<strong>Talált szavak (${illeszkedoSzavak.length} összesen):</strong><ul>${lista}</ul>`;
+            } else {
+                document.getElementById("eredmeny").innerHTML = "Nincs találat.";
+            }
+
+            // Lapozógombok frissítése
+            document.getElementById("elozo").disabled = jelenlegiOldal === 1;
+            document.getElementById("kovetkezo").disabled = vegzoIndex >= illeszkedoSzavak.length;
+        }
+
+        // Előző oldal
+        function elozoOldal() {
+            if (jelenlegiOldal > 1) {
+                jelenlegiOldal--;
+                renderEredmeny();
+            }
+        }
+
+        // Következő oldal
+        function kovetkezoOldal() {
+            if ((jelenlegiOldal * elemekPerOldal) < illeszkedoSzavak.length) {
+                jelenlegiOldal++;
+                renderEredmeny();
+            }
+        }
+
+        // Szavak keresése
+        function szavakKeresese() {
+            if (magyarSzavak.length === 0) {
+                document.getElementById("eredmeny").innerHTML = "Kérlek, először válassz ki egy szótárfájlt!";
+                return;
+            }
+
+            const minta = document.getElementById("minta").value.toLowerCase();
+            const hasznalhatoBetuk = document.getElementById("betuk").value.toLowerCase().split("");
+            const szuksegesBetukInput = document.getElementById("szuksegesBetuk").value.toLowerCase().split(",").map(s => s.trim()).filter(s => s);
+            const betuParok = document.getElementById("kettosBetuk").value.toLowerCase().split(",").map(s => s.trim()).filter(s => s);
+
+            if (!minta || !hasznalhatoBetuk.length) {
+                document.getElementById("eredmeny").innerHTML = "Kérlek, add meg a mintát és a betűket!";
+                return;
+            }
+
+            // Ellenőrzés: csak magyar betűk és * lehet a mintában
+            if (!/^[a-záéíóöőúüű*]+$/i.test(minta)) {
+                document.getElementById("eredmeny").innerHTML = "A mintában csak magyar betűk és * lehet!";
+                return;
+            }
+            // Ellenőrzés: csak magyar betűk és ? lehet a használható betűkben
+            if (!/^[a-záéíóöőúüű?]+$/i.test(hasznalhatoBetuk.join(""))) {
+                document.getElementById("eredmeny").innerHTML = "A betűk között csak magyar betűk és ? lehet!";
+                return;
+            }
+            // Ellenőrzés: szükséges betűk csak magyar betűket tartalmazhatnak
+            if (szuksegesBetukInput.length > 0 && !/^[a-záéíóöőúüű]+(,[a-záéíóöőúüű]+)*$|^$/.test(document.getElementById("szuksegesBetuk").value.toLowerCase())) {
+                document.getElementById("eredmeny").innerHTML = "A szükséges betűk csak magyar betűket tartalmazhatnak, vesszővel elválasztva (pl. t)!";
+                return;
+            }
+            // Ellenőrzés: betűpárok csak magyar betűket tartalmazhatnak
+            if (betuParok.length > 0 && !/^[a-záéíóöőúüű]+(,[a-záéíóöőúüű]+)*$|^$/.test(document.getElementById("kettosBetuk").value.toLowerCase())) {
+                document.getElementById("eredmeny").innerHTML = "A betűpárok csak magyar betűket tartalmazhatnak, vesszővel elválasztva (pl. cs,ly,qu)!";
+                return;
+            }
+
+            // Szükséges betűk számlálása
+            const szuksegesBetukSzamlalo = {};
+            szuksegesBetukInput.forEach(betu => {
+                szuksegesBetukSzamlalo[betu] = (szuksegesBetukSzamlalo[betu] || 0) + 1;
+            });
+
+            // Reguláris kifejezés a mintához
+            const regexMinta = minta
+                .split("")
+                .map(karakter => karakter === "*" ? "[a-záéíóöőúüű]" : karakter)
+                .join("");
+            const regex = new RegExp(`^${regexMinta}$`);
+
+            // Szavak szűrése
+            illeszkedoSzavak = magyarSzavak.filter(szo => {
+                // Minta ellenőrzése
+                if (!regex.test(szo)) return false;
+
+                // Szükséges betűk ellenőrzése (minden betűből annyi kell, amennyi meg van adva)
+                for (let betu in szuksegesBetukSzamlalo) {
+                    if (countOccurrences(szo, betu) < szuksegesBetukSzamlalo[betu]) {
+                        return false;
+                    }
+                }
+
+                // Használható betűkészlet kiegészítése a betűpárokkal, ha szerepelnek a szóban
+                let hasznalhatoBetukMasolat = [...hasznalhatoBetuk];
+                let jokerSzam = hasznalhatoBetukMasolat.filter(betu => betu === "?").length;
+
+                // Betűpárok ellenőrzése és hozzáadása a használható betűkhöz
+                for (let par of betuParok) {
+                    if (szo.includes(par)) {
+                        // Ha a betűpár szerepel a szóban, hozzáadjuk a betűit a használható betűkhöz
+                        hasznalhatoBetukMasolat.push(...par.split(""));
+                    }
+                }
+
+                // Betűkészlet ellenőrzése
+                const szoBetui = szo.split("");
+                for (let betu of szoBetui) {
+                    const index = hasznalhatoBetukMasolat.indexOf(betu);
+                    if (index !== -1) {
+                        hasznalhatoBetukMasolat.splice(index, 1);
+                    } else if (jokerSzam > 0) {
+                        jokerSzam--;
+                    } else {
+                        return false;
+                    }
+                }
+
+                return true;
+            });
+
+            // Eredmények alfabetikus rendezése
+            illeszkedoSzavak.sort();
+
+            // Első oldal megjelenítése
+            jelenlegiOldal = 1;
+            renderEredmeny();
+        }
+
+        // Enter billentyű figyelése a keresés indításához
+        document.getElementById("minta").addEventListener("keydown", function(event) {
+            if (event.key === "Enter") {
+                szavakKeresese();
+            }
+        });
+        document.getElementById("betuk").addEventListener("keydown", function(event) {
+            if (event.key === "Enter") {
+                szavakKeresese();
+            }
+        });
+        document.getElementById("szuksegesBetuk").addEventListener("keydown", function(event) {
+            if (event.key === "Enter") {
+                szavakKeresese();
+            }
+        });
+        document.getElementById("kettosBetuk").addEventListener("keydown", function(event) {
+            if (event.key === "Enter") {
+                szavakKeresese();
+            }
+        });
+
+        // Új keresés funkció (szótárfájl megtartása)
+        function ujKereses() {
+            document.getElementById("minta").value = "";
+            document.getElementById("betuk").value = "";
+            document.getElementById("szuksegesBetuk").value = "";
+            document.getElementById("kettosBetuk").value = "";
+            document.getElementById("karakterSzam").textContent = "0 betű";
+            document.getElementById("eredmeny").innerHTML = "";
+            illeszkedoSzavak = [];
+            jelenlegiOldal = 1;
+            document.getElementById("elozo").disabled = true;
+            document.getElementById("kovetkezo").disabled = true;
+        }
+
+        // Törlés funkció (minden törlése, beleértve a szótárfájlt)
+        function torles() {
+            document.getElementById("minta").value = "";
+            document.getElementById("betuk").value = "";
+            document.getElementById("szuksegesBetuk").value = "";
+            document.getElementById("kettosBetuk").value = "";
+            document.getElementById("szotarFile").value = "";
+            document.getElementById("karakterSzam").textContent = "0 betű";
+            magyarSzavak = [];
+            illeszkedoSzavak = [];
+            jelenlegiOldal = 1;
+            document.getElementById("eredmeny").innerHTML = "";
+            document.getElementById("elozo").disabled = true;
+            document.getElementById("kovetkezo").disabled = true;
+        }
+
+        // Teljes magyar ábécé hozzáadása
+        function addHungarianAlphabet() {
+            const magyarABC = "aábcdeéfghiíjklmnoóöőpqrstuúüűvwxyz";
+            document.getElementById("betuk").value = magyarABC;
+        }
+
+        // Karakterszámláló frissítése gépelés közben
+        document.getElementById("minta").addEventListener("input", function() {
+            const hossz = this.value.length;
+            document.getElementById("karakterSzam").textContent = `${hossz} betű`;
+        });
+    </script>
+</body>
+</html>

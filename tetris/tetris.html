@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <title>Tetris játék</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background: #000;
+            color: white;
+            font-family: Arial, sans-serif;
+        }
+        #gameContainer {
+            display: flex;
+            align-items: flex-start;
+            gap: 20px;
+        }
+        #gameCanvas {
+            border: 1px solid white;
+        }
+        #gameInfo {
+            text-align: left;
+            min-width: 150px;
+        }
+        #score, #highScore, #controlsInfo {
+            font-size: 18px;
+            margin-bottom: 10px;
+        }
+        #controlsInfo ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            font-size: 14px;
+        }
+        #controlsInfo li {
+            margin-bottom: 3px;
+        }
+        #playAgainDialog {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.85);
+            color: white;
+            padding: 25px 35px;
+            border-radius: 12px;
+            box-shadow: 0 0 20px rgba(255,255,255,0.3);
+            z-index: 1000;
+            text-align: center;
+        }
+        #playAgainDialog p {
+            margin-bottom: 20px;
+            font-size: 22px;
+            font-weight: bold;
+        }
+        #playAgainDialog .button-container {
+            display: flex;
+            flex-direction: row;
+            justify-content: center;
+            gap: 20px;
+        }
+        #playAgainDialog button {
+            background-color: #3498db;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 25px;
+            color: white;
+            font-size: 18px;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            transition: all 0.3s ease;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        #playAgainDialog button:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+            background-color: #2ecc71;
+        }
+        #playAgainDialog button::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            transition: width 0.6s ease, height 0.6s ease;
+        }
+        #playAgainDialog button:hover::before {
+            width: 300px;
+            height: 300px;
+        }
+        #playAgainDialog button .spinning-text {
+            display: inline-block;
+            transition: transform 0.3s ease;
+        }
+        #playAgainDialog button:hover .spinning-text {
+            animation: spinX 1s infinite linear;
+        }
+        @keyframes spinX {
+            0% {
+                transform: rotateX(0deg);
+            }
+            100% {
+                transform: rotateX(360deg);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas" width="300" height="600"></canvas>
+        <div id="gameInfo">
+            <div id="score">Eredmény: 0</div>
+            <div id="highScore">Rekord: 0 - None</div>
+            <div id="controlsInfo">
+                <h4>Irányítás:</h4>
+                <ul>
+                    <li>Nyilak: Mozgatás/Forgatás</li>
+                    <li>WASD: Mozgatás/Forgatás</li>
+                    <li>Space/P: Pause</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div id="playAgainDialog">
+        <p id="gameOverMessage">Game Over!</p>
+        <p>Szeretnél újra játszani?</p>
+        <div class="button-container">
+            <button id="yesButton"><span class="spinning-text">Igen</span></button>
+            <button id="noButton"><span class="spinning-text">Nem</span></button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreElement = document.getElementById('score');
+        const highScoreElement = document.getElementById('highScore');
+        const playAgainDialog = document.getElementById('playAgainDialog');
+        const gameOverMessageElement = document.getElementById('gameOverMessage');
+        const yesButton = document.getElementById('yesButton');
+        const noButton = document.getElementById('noButton');
+
+        const ROWS = 20;
+        const COLS = 10;
+        const BLOCK_SIZE = 30;
+        let score = 0;
+        let highScore = localStorage.getItem('tetrisHighScore') ? parseInt(localStorage.getItem('tetrisHighScore')) : 0;
+        let highScoreName = localStorage.getItem('tetrisHighScoreName') || 'None';
+
+        const O_SHAPE = [[1,1],[1,1]];
+        const SHAPES = [
+            [[1,1,1,1]],       // I
+            [[1,1,1],[0,1,0]], // T
+            [[1,1,1],[1,0,0]], // L
+            [[1,1,1],[0,0,1]], // J
+            O_SHAPE,           // O
+            [[1,1,0],[0,1,1]], // S
+            [[0,1,1],[1,1,0]]  // Z
+        ];
+
+        const COLORS = ['cyan', 'purple', 'orange', 'blue', 'yellow', 'green', 'red'];
+
+        let board = Array(ROWS).fill(null).map(() => Array(COLS).fill(0));
+        let currentPiece = null;
+        let gameOver = false;
+        let isPaused = false;
+        let gameLoopTimeout = null;
+
+        class Piece {
+            constructor() {
+                const shapeIndex = Math.floor(Math.random() * SHAPES.length);
+                this.shape = SHAPES[shapeIndex];
+                this.color = COLORS[shapeIndex % COLORS.length];
+                this.x = Math.floor(COLS / 2) - Math.floor(this.shape[0].length / 2);
+                this.y = 0;
+            }
+
+            draw() {
+                ctx.fillStyle = this.color;
+                this.shape.forEach((row, yOffset) => {
+                    row.forEach((value, xOffset) => {
+                        if (value) {
+                            ctx.fillRect(
+                                (this.x + xOffset) * BLOCK_SIZE,
+                                (this.y + yOffset) * BLOCK_SIZE,
+                                BLOCK_SIZE - 1,
+                                BLOCK_SIZE - 1
+                            );
+                        }
+                    });
+                });
+            }
+
+            moveDown() {
+                if (this.canMove(0, 1)) {
+                    this.y++;
+                    return true;
+                }
+                return false;
+            }
+
+            canMove(offsetX, offsetY, testShape = this.shape) {
+                for (let y = 0; y < testShape.length; y++) {
+                    for (let x = 0; x < testShape[y].length; x++) {
+                        if (testShape[y][x]) {
+                            let boardX = this.x + x + offsetX;
+                            let boardY = this.y + y + offsetY;
+                            if (boardX < 0 || boardX >= COLS || boardY >= ROWS) {
+                                return false;
+                            }
+                            if (boardY >= 0 && board[boardY] && board[boardY][boardX]) {
+                                return false;
+                            }
+                        }
+                    }
+                }
+                return true;
+            }
+
+            rotate() {
+                if (this.shape === O_SHAPE) return;
+
+                const originalShape = this.shape;
+                const N = originalShape.length;
+                const M = originalShape[0].length;
+                const newShape = Array(M).fill(null).map(() => Array(N).fill(0));
+
+                for (let r = 0; r < N; r++) {
+                    for (let c = 0; c < M; c++) {
+                        newShape[c][N - 1 - r] = originalShape[r][c];
+                    }
+                }
+
+                if (this.canMove(0, 0, newShape)) {
+                    this.shape = newShape;
+                } else if (this.canMove(1, 0, newShape)) {
+                    this.x++;
+                    this.shape = newShape;
+                } else if (this.canMove(-1, 0, newShape)) {
+                    this.x--;
+                    this.shape = newShape;
+                }
+            }
+        }
+
+        function checkLines() {
+            let linesCleared = 0;
+            for (let y = ROWS - 1; y >= 0; y--) {
+                if (board[y].every(cell => cell)) {
+                    board.splice(y, 1);
+                    board.unshift(Array(COLS).fill(0));
+                    linesCleared++;
+                    y++;
+                }
+            }
+            if (linesCleared > 0) {
+                updateScore(linesCleared);
+                return true;
+            }
+            return false;
+        }
+
+        function dropBoard() {
+            let changesMade;
+            do {
+                changesMade = false;
+                for (let y = ROWS - 2; y >= 0; y--) {
+                    for (let x = 0; x < COLS; x++) {
+                        if (board[y][x] && board[y + 1] !== undefined && !board[y + 1][x]) {
+                            let dropY = y + 1;
+                            while (dropY + 1 < ROWS && board[dropY + 1] !== undefined && !board[dropY + 1][x]) {
+                                dropY++;
+                            }
+                            if (dropY !== y) {
+                                board[dropY][x] = board[y][x];
+                                board[y][x] = 0;
+                                changesMade = true;
+                            }
+                        }
+                    }
+                }
+            } while (changesMade);
+        }
+
+        function updateBoard() {
+            let linesWereCleared;
+            do {
+                linesWereCleared = checkLines();
+                if (linesWereCleared) {
+                    dropBoard();
+                }
+            } while (linesWereCleared);
+        }
+
+        function updateScore(lines) {
+            const lineScores = [0, 100, 300, 500, 800];
+            score += lineScores[lines] || lineScores[lineScores.length - 1];
+            scoreElement.textContent = `Eredmény: ${score}`;
+        }
+
+        function placePiece() {
+            if (!currentPiece) return;
+
+            currentPiece.shape.forEach((row, y) => {
+                row.forEach((value, x) => {
+                    if (value) {
+                        let boardY = currentPiece.y + y;
+                        let boardX = currentPiece.x + x;
+                        if (boardY >= 0 && boardY < ROWS && boardX >= 0 && boardX < COLS) {
+                            board[boardY][boardX] = currentPiece.color;
+                        }
+                    }
+                });
+            });
+            updateBoard();
+
+            currentPiece = new Piece();
+
+            if (!currentPiece.canMove(0, 0)) {
+                drawBoard();
+                endGame();
+            }
+        }
+
+        function endGame() {
+            gameOver = true;
+            clearTimeout(gameLoopTimeout);
+            gameLoopTimeout = null;
+
+            let message = `Game Over! Your score: ${score}.`;
+            if (score > highScore) {
+                let playerName = prompt(`Új rekord: ${score}!\nAdd meg a neved:`, highScoreName !== 'None' ? highScoreName : "");
+                if (playerName !== null) {
+                    playerName = playerName.trim();
+                    const nameToSave = playerName || "Anonymous";
+                    highScore = score;
+                    highScoreName = nameToSave;
+                    localStorage.setItem('tetrisHighScore', highScore);
+                    localStorage.setItem('tetrisHighScoreName', highScoreName);
+                    updateHighScoreDisplay();
+                    message = `Új rekord: ${score} by ${highScoreName}!`;
+                } else {
+                    message = `Game Over! Eredmény: ${score}. High score of ${highScore} by ${highScoreName} remains.`;
+                }
+            } else {
+                message = `Game Over! Eredmény: ${score}. High Score: ${highScore} by ${highScoreName}.`;
+            }
+
+            gameOverMessageElement.textContent = message.split('.')[0] + '!';
+            playAgainDialog.style.display = 'block';
+        }
+
+        function resetGame() {
+            score = 0;
+            scoreElement.textContent = `Eredmény: ${score}`;
+            board = Array(ROWS).fill(null).map(() => Array(COLS).fill(0));
+            gameOver = false;
+            isPaused = false;
+            playAgainDialog.style.display = 'none';
+            updateHighScoreDisplay();
+            currentPiece = new Piece();
+
+            if (!currentPiece.canMove(0, 0)) {
+                endGame();
+                return;
+            }
+
+            clearTimeout(gameLoopTimeout);
+            gameLoopTimeout = null;
+            gameLoop();
+        }
+
+        function updateHighScoreDisplay() {
+            highScore = localStorage.getItem('tetrisHighScore') ? parseInt(localStorage.getItem('tetrisHighScore')) : 0;
+            highScoreName = localStorage.getItem('tetrisHighScoreName') || 'None';
+            highScoreElement.textContent = `Rekord: ${highScore} - ${highScoreName}`;
+        }
+
+        function drawBoard() {
+            ctx.fillStyle = '#111';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            board.forEach((row, y) => {
+                row.forEach((color, x) => {
+                    if (color) {
+                        ctx.fillStyle = color;
+                        ctx.fillRect(x * BLOCK_SIZE, y * BLOCK_SIZE, BLOCK_SIZE - 1, BLOCK_SIZE - 1);
+                    }
+                });
+            });
+
+            if (currentPiece && !gameOver) {
+                currentPiece.draw();
+            }
+
+            if (isPaused && !gameOver) {
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+                ctx.fillRect(0, canvas.height / 2 - 30, canvas.width, 60);
+                ctx.fillStyle = '#000';
+                ctx.font = 'bold 30px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('PAUSED', canvas.width / 2, canvas.height / 2 + 10);
+            }
+        }
+
+        function gameLoop() {
+            if (gameOver) {
+                clearTimeout(gameLoopTimeout);
+                gameLoopTimeout = null;
+                return;
+            }
+            if (isPaused) {
+                drawBoard();
+                return;
+            }
+
+            let movedDown = false;
+            if (currentPiece) {
+                movedDown = currentPiece.moveDown();
+            } else {
+                endGame();
+                return;
+            }
+
+            if (!movedDown) {
+                placePiece();
+                if (gameOver) {
+                    drawBoard();
+                    return;
+                }
+            }
+
+            drawBoard();
+
+            clearTimeout(gameLoopTimeout);
+            gameLoopTimeout = setTimeout(gameLoop, 800);
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (playAgainDialog.style.display === 'block') {
+                if (e.key === 'Enter' || e.key === 'y' || e.key === 'Y') yesButton.click();
+                else if (e.key === 'Escape' || e.key === 'n' || e.key === 'N') noButton.click();
+                return;
+            }
+            if (e.key === ' ' || e.key === 'p' || e.key === 'P') {
+                e.preventDefault();
+                if (!gameOver) {
+                    isPaused = !isPaused;
+                    if (!isPaused) gameLoop();
+                    else drawBoard();
+                }
+                return;
+            }
+            if (isPaused || gameOver || !currentPiece) return;
+
+            let moved = false;
+            let needsRedraw = false;
+            switch(e.key) {
+                case 'ArrowLeft':
+                case 'a':
+                    moved = currentPiece.canMove(-1, 0);
+                    if (moved) currentPiece.x--;
+                    needsRedraw = moved;
+                    break;
+                case 'ArrowRight':
+                case 'd':
+                    moved = currentPiece.canMove(1, 0);
+                    if (moved) currentPiece.x++;
+                    needsRedraw = moved;
+                    break;
+                case 'ArrowDown':
+                case 's':
+                    moved = currentPiece.moveDown();
+                    if (moved) {
+                        score += 1;
+                        scoreElement.textContent = `Eredmény: ${score}`;
+                        needsRedraw = true;
+                        clearTimeout(gameLoopTimeout);
+                        gameLoopTimeout = setTimeout(gameLoop, 800);
+                    } else {
+                        placePiece();
+                        needsRedraw = false;
+                    }
+                    break;
+                case 'ArrowUp':
+                case 'w':
+                    currentPiece.rotate();
+                    needsRedraw = true;
+                    break;
+            }
+            if (needsRedraw && !gameOver && !isPaused) drawBoard();
+        });
+
+        yesButton.addEventListener('click', resetGame);
+        noButton.addEventListener('click', () => {
+            playAgainDialog.style.display = 'none';
+            try {
+                window.open('', '_self').close();
+            } catch {
+                // Ha nem engedi a böngésző, csak elrejti
+            }
+        });
+
+        updateHighScoreDisplay();
+        resetGame();
+    </script>
+</body>
+</html>
