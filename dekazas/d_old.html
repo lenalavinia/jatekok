@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dekázós Játék</title>
+    <style>
+        canvas {
+            border: 1px solid black;
+            background-color: #f0f0f0;
+            display: block;
+            margin: 0 auto;
+        }
+        #score {
+            font-size: 24px;
+            margin: 10px;
+            text-align: center;
+        }
+        #gameOver {
+            font-size: 32px;
+            color: red;
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+        #errorMessage {
+            font-size: 20px;
+            color: red;
+            margin: 10px;
+            text-align: center;
+            display: none;
+        }
+        #playAgainDialog {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #333;
+            color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 0 15px rgba(255,255,255,0.2);
+            z-index: 1000;
+            text-align: center;
+        }
+        #playAgainDialog p {
+            margin-bottom: 20px;
+            font-size: 18px;
+        }
+        #playAgainDialog button {
+            margin: 0 10px;
+            padding: 8px 18px;
+            font-size: 16px;
+            cursor: pointer;
+            background-color: #555;
+            color: white;
+            border: 1px solid #777;
+            border-radius: 5px;
+        }
+        #playAgainDialog button:hover {
+            background-color: #777;
+        }
+    </style>
+</head>
+<body>
+    <div id="score">Érintések: 0<br>Rekord: 0 - Nincs</div>
+    <div id="errorMessage"></div>
+    <canvas id="gameCanvas" width="1920" height="1080"></canvas>
+    <div id="gameOver">Játék Vége!</div>
+    <div id="playAgainDialog">
+        <p id="gameOverMessage">Játék Vége!</p>
+        <p>Új játék?</p>
+        <button id="yesButton">Új játék</button>
+        <button id="noButton">Kilépés</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreDisplay = document.getElementById('score');
+        const gameOverDisplay = document.getElementById('gameOver');
+        const errorMessage = document.getElementById('errorMessage');
+        const playAgainDialog = document.getElementById('playAgainDialog');
+        const gameOverMessageElement = document.getElementById('gameOverMessage');
+        const yesButton = document.getElementById('yesButton');
+        const noButton = document.getElementById('noButton');
+
+        // Képek betöltése
+        const ballImg = new Image();
+        ballImg.src = 'labda_png.png';
+        const shoeImg = new Image();
+        shoeImg.src = 'cipo_png.png';
+
+        // Képek betöltésének ellenőrzése
+        let ballImageLoaded = false;
+        let shoeImageLoaded = false;
+        let errorLoadingImages = false;
+
+        ballImg.onload = () => {
+            ballImageLoaded = true;
+            checkImagesLoaded();
+        };
+        shoeImg.onload = () => {
+            shoeImageLoaded = true;
+            checkImagesLoaded();
+        };
+        ballImg.onerror = () => {
+            console.error("Nem sikerült betölteni a labda képét: labda_png.png");
+            errorMessage.textContent = "Nem sikerült betölteni a képeket, helyettesítő grafikák használata.";
+            errorMessage.style.display = 'block';
+            ballImageLoaded = true;
+            errorLoadingImages = true;
+            checkImagesLoaded();
+        };
+        shoeImg.onerror = () => {
+            console.error("Nem sikerült betölteni a cipő képét: cipo_png.png");
+            errorMessage.textContent = "Nem sikerült betölteni a képeket, helyettesítő grafikák használata.";
+            errorMessage.style.display = 'block';
+            shoeImageLoaded = true;
+            errorLoadingImages = true;
+            checkImagesLoaded();
+        };
+
+        // Játék változók
+        let ball = {
+            x: 960,
+            y: 100,
+            radius: 50,
+            dx: 0,
+            dy: 0,
+            gravity: 0.3
+        };
+        let shoe = {
+            x: 960,
+            y: 900,
+            width: 200,
+            height: 100,
+            speed: 0.2
+        };
+        let score = 0;
+        let highScore = localStorage.getItem('dekaHighScore') ? parseInt(localStorage.getItem('dekaHighScore')) : 0;
+        let highScoreName = localStorage.getItem('dekaHighScoreName') || 'Nincs';
+        let gameOver = false;
+
+        // Egér pozíció
+        let mouseX = shoe.x;
+        let mouseY = shoe.y;
+
+        // Egér mozgás figyelése
+        canvas.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            mouseX = e.clientX - rect.left;
+            mouseY = e.clientY - rect.top;
+        });
+
+        // Ütközés detektálása
+        function detectCollision() {
+            // A legközelebbi pont kiszámítása a cipő téglalapján
+            const closestX = Math.max(shoe.x, Math.min(ball.x, shoe.x + shoe.width));
+            const closestY = Math.max(shoe.y, Math.min(ball.y, shoe.y + shoe.height));
+            const distanceX = ball.x - closestX;
+            const distanceY = ball.y - closestY;
+            const distance = Math.sqrt(distanceX * distanceX + distanceY * distanceY);
+
+            // Módosított ütközésérzékelés: a labda sugarának csak egy részét vesszük figyelembe
+            // Így az ütközés közelebb történik a cipő felületéhez
+            const collisionThreshold = ball.radius * 0.6; // 60%-a a sugárnak, hogy közelebb legyen az érintkezés
+            if (distance <= collisionThreshold) {
+                score++;
+                updateScoreDisplay();
+
+                const relativeX = ball.x - (shoe.x + shoe.width / 2);
+                const maxBounceAngle = Math.PI / 3;
+                const bounceAngle = (relativeX / (shoe.width / 2)) * maxBounceAngle;
+
+                const speed = Math.sqrt(ball.dx * ball.dx + ball.dy * ball.dy) || 5;
+                ball.dx = speed * Math.sin(bounceAngle);
+                ball.dy = -speed * Math.cos(bounceAngle);
+            }
+        }
+
+        // Pontszám és rekord frissítése
+        function updateScoreDisplay() {
+            scoreDisplay.innerHTML = `Érintések: ${score}<br>Rekord: ${highScore} - ${highScoreName}`;
+        }
+
+        // Játék visszaállítása
+        function resetGame() {
+            score = 0;
+            ball = {
+                x: 960,
+                y: 100,
+                radius: 50,
+                dx: 0,
+                dy: 0,
+                gravity: 0.3
+            };
+            shoe = {
+                x: 960,
+                y: 900,
+                width: 200,
+                height: 100,
+                speed: 0.2
+            };
+            gameOver = false;
+            playAgainDialog.style.display = 'none';
+            gameOverDisplay.style.display = 'none';
+            updateScoreDisplay();
+            gameLoop();
+        }
+
+        // Játék vége
+        function endGame() {
+            gameOver = true;
+            let message = `Játék Vége! Pontszámod: ${score}.`;
+            if (score > highScore) {
+                let playerName = prompt(`Új rekord: ${score}!\nAdd meg a neved:`, highScoreName !== 'Nincs' ? highScoreName : "");
+                if (playerName !== null) {
+                    playerName = playerName.trim();
+                    const nameToSave = playerName || "Névtelen";
+                    highScore = score;
+                    highScoreName = nameToSave;
+                    localStorage.setItem('dekaHighScore', highScore);
+                    localStorage.setItem('dekaHighScoreName', highScoreName);
+                    message = `Új rekord: ${score} (${highScoreName})!`;
+                } else {
+                    message = `Játék Vége! Pontszámod: ${score}. Rekord: ${highScore} (${highScoreName}).`;
+                }
+            } else {
+                message = `Játék Vége! Pontszámod: ${score}. Rekord: ${highScore} (${highScoreName}).`;
+            }
+
+            gameOverMessageElement.textContent = message.split('.')[0] + '!';
+            playAgainDialog.style.display = 'block';
+        }
+
+        // Játék ciklus
+        function gameLoop() {
+            if (gameOver) {
+                endGame();
+                return;
+            }
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            shoe.x += (mouseX - shoe.x - shoe.width / 2) * shoe.speed;
+            shoe.y += (mouseY - shoe.y - shoe.height / 2) * shoe.speed;
+
+            if (shoe.x < 0) shoe.x = 0;
+            if (shoe.x + shoe.width > canvas.width) shoe.x = canvas.width - shoe.width;
+            if (shoe.y < 0) shoe.y = 0;
+            if (shoe.y + shoe.height > canvas.height) shoe.y = canvas.height - shoe.height;
+
+            ball.dy += ball.gravity;
+            ball.x += ball.dx;
+            ball.y += ball.dy;
+
+            if (ball.x - ball.radius < 0) {
+                ball.x = ball.radius;
+                ball.dx = Math.abs(ball.dx);
+            }
+            if (ball.x + ball.radius > canvas.width) {
+                ball.x = canvas.width - ball.radius;
+                ball.dx = -Math.abs(ball.dx);
+            }
+            if (ball.y - ball.radius < 0) {
+                ball.y = ball.radius;
+                ball.dy = Math.abs(ball.dy);
+            }
+            if (ball.y + ball.radius > canvas.height) {
+                gameOver = true;
+            }
+
+            detectCollision();
+
+            if (!errorLoadingImages && ballImageLoaded && ballImg.complete && ballImg.naturalWidth !== 0) {
+                ctx.drawImage(ballImg, ball.x - ball.radius, ball.y - ball.radius, ball.radius * 2, ball.radius * 2);
+            } else {
+                ctx.beginPath();
+                ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+                ctx.fillStyle = 'yellow';
+                ctx.fill();
+                ctx.closePath();
+            }
+
+            if (!errorLoadingImages && shoeImageLoaded && shoeImg.complete && shoeImg.naturalWidth !== 0) {
+                ctx.drawImage(shoeImg, shoe.x, shoe.y, shoe.width, shoe.height);
+            } else {
+                ctx.fillStyle = 'black';
+                ctx.fillRect(shoe.x, shoe.y, shoe.width, shoe.height);
+            }
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Képek betöltésének ellenőrzése
+        function checkImagesLoaded() {
+            if (ballImageLoaded && shoeImageLoaded) {
+                updateScoreDisplay();
+                gameLoop();
+            }
+        }
+
+        // Dialog gombok eseménykezelői
+        yesButton.addEventListener('click', resetGame);
+        noButton.addEventListener('click', () => {
+            playAgainDialog.style.display = 'none';
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = 'white';
+            ctx.font = '24px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('Köszönjük, hogy játszottál!', canvas.width / 2, canvas.height / 2 - 20);
+            ctx.font = '16px Arial';
+            ctx.fillText('Frissítsd az oldalt az új játékhoz.', canvas.width / 2, canvas.height / 2 + 20);
+        });
+
+        // Billentyűzet támogatás a dialoghoz
+        document.addEventListener('keydown', (e) => {
+            if (playAgainDialog.style.display === 'block') {
+                if (e.key === 'Enter' || e.key === 'y' || e.key === 'Y') yesButton.click();
+                else if (e.key === 'Escape' || e.key === 'n' || e.key === 'N') noButton.click();
+            }
+        });
+    </script>
+</body>
+</html>

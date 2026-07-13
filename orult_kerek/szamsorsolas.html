@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+  <meta charset="UTF-8">
+  <title>Szám tárcsa sorsoló</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      width: 100%;
+      height: 100%;
+      background: rgb(243, 244, 246);
+      font-family: Arial, sans-serif;
+      color: white;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .wheel-container {
+      position: relative;
+      width: 90vmin;
+      height: 90vmin;
+    }
+
+    .wheel {
+      width: 100%;
+      height: 100%;
+      border-radius: 90%;
+      border: 10px solid #888;
+      position: relative;
+      transition: transform 5s cubic-bezier(0.25, 1, 0.25, 1);
+      background: conic-gradient(
+        #ff4d4d, #4d79ff, #4dff4d, #ffcc4d, #cc4dff,
+        #ff4d4d, #4d79ff, #4dff4d, #ffcc4d, #cc4dff,
+        #ff4d4d
+      );
+    }
+
+    .number {
+      position: absolute;
+      text-align: center;
+      font-size: 1.8vmin;
+      font-weight: 900;
+      color: #fff;
+      text-shadow: 0 0 5px #000, 0 0 10px #000;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+    }
+
+    #pointer {
+      width: 0;
+      height: 0;
+      border-left: 30px solid transparent;
+      border-right: 30px solid transparent;
+      border-bottom: 50px solid #ff3333;
+      position: absolute;
+      top: -50px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+    }
+
+    #result {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 4vmin;
+      font-weight: bold;
+      color: white;
+      display: none;
+      text-align: center;
+      z-index: 20;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="wheel-container">
+    <div id="pointer"></div>
+    <div class="wheel" id="wheel"></div>
+    <div id="result"></div> <!-- Már nem a wheel belsejében van -->
+  </div>
+
+  <script>
+    const wheel = document.getElementById("wheel");
+    const resultDisplay = document.getElementById("result");
+
+    const totalNumbers = 100;
+    const containerSize = 90;
+    const radiusPercent = 44;
+    const radius = (radiusPercent / 100) * containerSize;
+
+    const centerX = 45;
+    const centerY = 45;
+
+    // Számok elhelyezése a keréken
+    for (let i = 1; i <= totalNumbers; i++) {
+      const angle = (i - 1) * (360 / totalNumbers);
+      const rad = (angle - 90) * (Math.PI / 180);
+      const x = centerX + radius * Math.cos(rad);
+      const y = centerY + radius * Math.sin(rad);
+
+      const numberElem = document.createElement("div");
+      numberElem.className = "number";
+      numberElem.style.left = `${x}vmin`;
+      numberElem.style.top = `${y}vmin`;
+      numberElem.innerText = i;
+      wheel.appendChild(numberElem);
+    }
+
+    let currentRotation = 0;
+
+    function spinWheel() {
+      const selectedNumber = Math.floor(Math.random() * totalNumbers) + 1;
+      const anglePerNumber = 360 / totalNumbers;
+      const targetAngle = (selectedNumber - 1) * anglePerNumber;
+      const extraSpins = 5 * 360;
+      const finalRotation = extraSpins - targetAngle;
+
+      currentRotation += finalRotation;
+      wheel.style.transform = `rotate(${currentRotation}deg)`;
+
+      setTimeout(() => {
+        resultDisplay.textContent = `Ugrás a ${selectedNumber}. mezőre`;
+        resultDisplay.style.display = "block";
+      }, 5000);
+    }
+
+    // Automatikus forgatás lap betöltésekor
+    window.onload = () => {
+      spinWheel();
+    };
+  </script>
+
+</body>
+</html>

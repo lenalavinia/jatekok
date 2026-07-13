@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nyúl fogás</title>
+    <style>
+        body {
+            margin: 0;
+            background-color: #f0f0f0;
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        #board {
+            text-align: center;
+            background: white;
+            padding: 20px 30px;
+            border-radius: 15px;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+        }
+        #controls {
+            margin-bottom: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+        #status {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 15px;
+            font-size: 18px;
+            user-select: none;
+        }
+        .status-circle {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+        }
+        .nyul-circle {
+            background-color: white;
+            border: 1px solid black;
+        }
+        .vadasz-circle {
+            background-color: black;
+        }
+        .highlight {
+            font-weight: bold;
+            font-size: 22px;
+            color: #2ecc71;
+        }
+        .inactive {
+            opacity: 0.6;
+            font-size: 18px;
+            color: #555;
+        }
+        table {
+            border-collapse: collapse;
+            margin: 0 auto;
+            user-select: none;
+        }
+        td.square {
+            width: 50px;
+            height: 50px;
+            background-color: #3498db;
+            border: 1px solid black;
+            cursor: pointer;
+            position: relative;
+        }
+        td.light-square {
+            width: 50px;
+            height: 50px;
+            background-color: #ecf0f1;
+        }
+        .piece {
+            width: 100%;
+            height: 100%;
+            cursor: grab;
+        }
+        .piece img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+        .selected {
+            outline: 3px solid yellow;
+        }
+        .possible {
+            background-color: #27ae60 !important;
+        }
+        button {
+            background-color: #3498db;
+            border: none;
+            padding: 15px 30px;
+            margin: 10px 0;
+            border-radius: 25px;
+            color: white;
+            font-size: 18px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            position: relative;
+            overflow: hidden;
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            user-select: none;
+        }
+        button:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+            background-color: #2ecc71;
+        }
+        button::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            transition: width 0.6s ease, height 0.6s ease;
+            z-index: 0;
+        }
+        button:hover::before {
+            width: 300px;
+            height: 300px;
+        }
+        .spinning-text {
+            display: inline-block;
+            transition: transform 0.3s ease;
+            position: relative;
+            z-index: 1;
+        }
+        button:hover .spinning-text {
+            animation: spinX 1s infinite linear;
+        }
+        @keyframes spinX {
+            0% { transform: rotateX(0deg); }
+            100% { transform: rotateX(360deg); }
+        }
+        #restart-div {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(255, 255, 255, 0.9);
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            user-select: none;
+        }
+        #restart-div p {
+            margin: 10px 0;
+        }
+        #restart-buttons {
+            display: flex;
+            gap: 20px;
+        }
+        #restart-buttons button {
+            margin: 0;
+            display: inline-block;
+        }
+    </style>
+</head>
+<body>
+    <div id="board">
+        <div id="controls">
+            <div id="status"></div>
+            <button onclick="location.reload()"><span class="spinning-text">Játék újrakezdése</span></button>
+        </div>
+        <div id="game-table"></div>
+    </div>
+
+    <div id="restart-div">
+        <p>Új játék?</p>
+        <div id="restart-buttons">
+            <button onclick="restartGame()"><span class="spinning-text">Igen</span></button>
+            <button onclick="window.close()"><span class="spinning-text">Nem</span></button>
+        </div>
+    </div>
+
+    <audio id="fanfare" src="fanfare.mp3"></audio>
+
+    <script>
+        const BOARD_SIZE = 8;
+        const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+        const table = document.createElement('table');
+        const cells = Array.from({ length: BOARD_SIZE }, () => Array(BOARD_SIZE).fill(null));
+        const fanfare = document.getElementById('fanfare');
+        const restartDiv = document.getElementById('restart-div');
+        const moveHistory = [];
+
+        let pieces = {
+            nyul: { type: 'nyul', pos: 'd1' },
+            vadaszok: [
+                { type: 'vadasz', pos: 'a8' },
+                { type: 'vadasz', pos: 'c8' },
+                { type: 'vadasz', pos: 'e8' },
+                { type: 'vadasz', pos: 'g8' }
+            ]
+        };
+
+        let currentPlayer = 'feher';
+        let selected = null;
+
+        const directions = [
+            { dx: -1, dy: 1 },
+            { dx: 1, dy: 1 },
+            { dx: -1, dy: -1 },
+            { dx: 1, dy: -1 }
+        ];
+
+        function isValidPosition(x, y) {
+            return x >= 0 && x < BOARD_SIZE && y >= 0 && y < BOARD_SIZE;
+        }
+
+        function isDarkSquare(x, y) {
+            return (x + y) % 2 === 1;
+        }
+
+        function posToCoord(pos) {
+            const x = files.indexOf(pos[0]);
+            const y = parseInt(pos[1]) - 1;
+            return { x, y };
+        }
+
+        function coordToPos(x, y) {
+            if (!isValidPosition(x, y) || !isDarkSquare(x, y)) return null;
+            return files[x] + (y + 1);
+        }
+
+        function createBoard() {
+            for (let y = BOARD_SIZE - 1; y >= 0; y--) {
+                const tr = document.createElement('tr');
+                for (let x = 0; x < BOARD_SIZE; x++) {
+                    const td = document.createElement('td');
+                    if (isDarkSquare(x, y)) {
+                        td.className = 'square';
+                        td.dataset.pos = coordToPos(x, y);
+                        td.addEventListener('click', handleClick);
+                        cells[y][x] = td;
+                    } else {
+                        td.className = 'light-square';
+                    }
+                    tr.appendChild(td);
+                }
+                table.appendChild(tr);
+            }
+            document.getElementById('game-table').appendChild(table);
+        }
+
+        function placePieces() {
+            cells.flat().forEach(cell => { if (cell) cell.innerHTML = ''; });
+            placePiece(pieces.nyul);
+            pieces.vadaszok.forEach(placePiece);
+            updateStatus();
+        }
+
+        function placePiece(piece) {
+            const cell = document.querySelector(`[data-pos="${piece.pos}"]`);
+            if (cell) {
+                const div = document.createElement('div');
+                div.className = `piece ${piece.type}`;
+                const img = document.createElement('img');
+                if (piece.type === 'nyul') {
+                    img.src = 'nyul_png.png';
+                    img.alt = 'Nyúl';
+                } else if (piece.type === 'vadasz') {
+                    img.src = 'vadasz_png.png';
+                    img.alt = 'Vadász';
+                }
+                div.appendChild(img);
+                cell.appendChild(div);
+            }
+        }
+
+        function removePieceFromCell(pos) {
+            const cell = document.querySelector(`[data-pos="${pos}"]`);
+            if (cell) cell.innerHTML = '';
+        }
+
+        function clearHighlights() {
+            cells.flat().forEach(cell => {
+                if (cell) cell.classList.remove('selected', 'possible');
+            });
+        }
+
+        function getPossibleMoves(piece) {
+            const { x, y } = posToCoord(piece.pos);
+            const moves = [];
+            for (const dir of directions) {
+                const nx = x + dir.dx;
+                const ny = y + dir.dy;
+                const newPos = coordToPos(nx, ny);
+                if (newPos && isEmpty(newPos)) moves.push(newPos);
+            }
+            return moves;
+        }
+
+        function isEmpty(pos) {
+            if (pieces.nyul.pos === pos) return false;
+            return !pieces.vadaszok.some(v => v.pos === pos);
+        }
+
+        function highlightPossibleMoves(piece) {
+            const moves = getPossibleMoves(piece);
+            moves.forEach(pos => {
+                const cell = document.querySelector(`[data-pos="${pos}"]`);
+                if (cell) cell.classList.add('possible');
+            });
+        }
+
+        function getPieceAt(pos) {
+            if (pieces.nyul.pos === pos) return pieces.nyul;
+            return pieces.vadaszok.find(v => v.pos === pos);
+        }
+
+        function handleClick(e) {
+            const pos = e.currentTarget.dataset.pos;
+            const piece = getPieceAt(pos);
+
+            if (piece && ((currentPlayer === 'feher' && piece.type === 'nyul') || (currentPlayer === 'fekete' && piece.type === 'vadasz'))) {
+                if (selected && selected.pos === pos) {
+                    clearHighlights();
+                    selected = null;
+                    return;
+                }
+                clearHighlights();
+                selected = piece;
+                e.currentTarget.querySelector('.piece').classList.add('selected');
+                highlightPossibleMoves(piece);
+            } else if (selected) {
+                const moves = getPossibleMoves(selected);
+                if (moves.includes(pos)) {
+                    movePiece(selected, pos);
+                }
+                clearHighlights();
+                selected = null;
+            }
+        }
+
+        function movePiece(piece, newPos) {
+            const oldPos = piece.pos;
+            moveHistory.push({ piece, oldPos, newPos });
+            removePieceFromCell(oldPos);
+            piece.pos = newPos;
+            placePiece(piece);
+            currentPlayer = currentPlayer === 'feher' ? 'fekete' : 'feher';
+            checkGameOver();
+        }
+
+        function updateStatus(message = null) {
+            const status = document.getElementById('status');
+            if (message) {
+                let imgHTML = '';
+                if (message.includes("A vadászok nyertek")) {
+                    imgHTML = '<img src="vadasz_png.png" alt="Vadász győzelem" style="width:100px;height:auto;">';
+                } else if (message.includes("A nyúl megszökött")) {
+                    imgHTML = '<img src="nyul_png.png" alt="Nyúl győzelem" style="width:100px;height:auto;">';
+                }
+                status.innerHTML = `<div>${message}</div>${imgHTML}`;
+                return;
+            }
+
+            status.innerHTML = `
+                <div class="${currentPlayer === 'feher' ? 'highlight' : 'inactive'}">
+                    <span class="status-circle nyul-circle"></span> Nyúl lép
+                </div>
+                <div class="${currentPlayer === 'fekete' ? 'highlight' : 'inactive'}">
+                    <span class="status-circle vadasz-circle"></span> Vadász lép
+                </div>
+            `;
+        }
+
+        function checkGameOver() {
+            const nyulWinSquares = ['a8', 'c8', 'e8', 'g8'];
+            if (nyulWinSquares.includes(pieces.nyul.pos)) {
+                updateStatus("A nyúl megszökött!");
+                fanfare.play();
+                restartDiv.style.display = 'flex';
+                return;
+            }
+            if (currentPlayer === 'feher' && getPossibleMoves(pieces.nyul).length === 0) {
+                updateStatus("A vadászok nyertek!");
+                fanfare.play();
+                restartDiv.style.display = 'flex';
+                return;
+            }
+            updateStatus();
+        }
+
+        function restartGame() {
+            pieces = {
+                nyul: { type: 'nyul', pos: 'd1' },
+                vadaszok: [
+                    { type: 'vadasz', pos: 'a8' },
+                    { type: 'vadasz', pos: 'c8' },
+                    { type: 'vadasz', pos: 'e8' },
+                    { type: 'vadasz', pos: 'g8' }
+                ]
+            };
+            currentPlayer = 'feher';
+            moveHistory.length = 0;
+            cells.flat().forEach(cell => { if (cell) cell.innerHTML = ''; });
+            clearHighlights();
+            selected = null;
+            placePieces();
+            restartDiv.style.display = 'none';
+            fanfare.pause();
+            fanfare.currentTime = 0;
+        }
+
+        createBoard();
+        placePieces();
+    </script>
+</body>
+</html>

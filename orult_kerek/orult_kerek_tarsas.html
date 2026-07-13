@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Őrült kerék társas</title>
+  <style>
+    body { 
+      background-color: #f3f4f6; 
+      font-family: Arial, sans-serif; 
+      display: flex; 
+      flex-direction: column; 
+      align-items: center; 
+      min-height: 100vh; 
+      margin: 0; 
+      padding: 0; 
+      position: relative; 
+      overflow: hidden;
+    }
+    h1 { margin-bottom: 20px; }
+    .grid { 
+      display: grid; 
+      grid-template-columns: repeat(10, minmax(0, 1fr)); 
+      gap: 2px; 
+    }
+    .board-cell { 
+      width: 3rem; 
+      height: 3rem; 
+      border: 1px solid #000; 
+      display: flex; 
+      justify-content: center; 
+      align-items: center; 
+      font-size: 0.8rem; 
+      position: relative; 
+      background-color: #fff; 
+    }
+    .special-cell { 
+      position: relative; 
+      display: flex; 
+      align-items: center; 
+      justify-content: center; 
+    }
+    .swap-cell {
+      background-image: url('csere.jpg');
+      background-size: cover;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .player-piece { 
+      width: 1.5rem; 
+      height: 1.5rem; 
+      border-radius: 50%; 
+      border: 1px solid black; 
+    }
+    .die {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 50px;
+      height: 50px;
+      background: #fff;
+      border: 2px solid #000;
+      border-radius: 5px;
+      margin: 0;
+      position: relative;
+    }
+    .dot { 
+      width: 10px; 
+      height: 10px; 
+      background: black; 
+      border-radius: 50%; 
+      position: absolute; 
+    }
+    .die[data-value="1"] .dot:nth-child(1) { top: 20px; left: 20px; }
+    .die[data-value="2"] .dot:nth-child(1) { top: 10px; left: 10px; }
+    .die[data-value="2"] .dot:nth-child(2) { bottom: 10px; right: 10px; }
+    .die[data-value="3"] .dot:nth-child(1) { top: 10px; left: 10px; }
+    .die[data-value="3"] .dot:nth-child(2) { top: 20px; left: 20px; }
+    .die[data-value="3"] .dot:nth-child(3) { bottom: 10px; right: 10px; }
+    .die[data-value="4"] .dot:nth-child(1) { top: 10px; left: 10px; }
+    .die[data-value="4"] .dot:nth-child(2) { top: 10px; right: 10px; }
+    .die[data-value="4"] .dot:nth-child(3) { bottom: 10px; left: 10px; }
+    .die[data-value="4"] .dot:nth-child(4) { bottom: 10px; right: 10px; }
+    .die[data-value="5"] .dot:nth-child(1) { top: 10px; left: 10px; }
+    .die[data-value="5"] .dot:nth-child(2) { top: 10px; right: 10px; }
+    .die[data-value="5"] .dot:nth-child(3) { top: 20px; left: 20px; }
+    .die[data-value="5"] .dot:nth-child(4) { bottom: 10px; left: 10px; }
+    .die[data-value="5"] .dot:nth-child(5) { bottom: 10px; right: 10px; }
+    .die[data-value="6"] .dot:nth-child(1) { top: 10px; left: 10px; }
+    .die[data-value="6"] .dot:nth-child(2) { top: 10px; right: 10px; }
+    .die[data-value="6"] .dot:nth-child(3) { top: 20px; left: 10px; }
+    .die[data-value="6"] .dot:nth-child(4) { top: 20px; right: 10px; }
+    .die[data-value="6"] .dot:nth-child(5) { bottom: 10px; left: 10px; }
+    .die[data-value="6"] .dot:nth-child(6) { bottom: 10px; right: 10px; }
+
+    #diceDisplay {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      width: 100%;
+      margin-top: 10px;
+    }
+
+    #controls {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 100%;
+      text-align: center;
+    }
+
+    #rollButton, #startButton {
+      background-color: #3498db;
+      border: none;
+      padding: 15px 30px;
+      margin: 10px 0;
+      border-radius: 25px;
+      color: white;
+      font-size: 18px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    #rollButton:hover, #startButton:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+      background-color: #2ecc71;
+    }
+    #rollButton::before, #startButton::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 0;
+      height: 0;
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      transition: width 0.6s ease, height 0.6s ease;
+    }
+    #rollButton:hover::before, #startButton::before {
+      width: 300px;
+      height: 300px;
+    }
+    #rollButton .spinning-text, #startButton .spinning-text {
+      display: inline-block;
+      transition: transform 0.3s ease;
+    }
+    #rollButton:hover .spinning-text, #startButton:hover .spinning-text {
+      animation: spinX 1s infinite linear;
+    }
+    @keyframes spinX {
+      to { transform: rotateX(360deg); }
+    }
+
+    #numberDraw {
+      background-color: #f3f4f6;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      height: 100vh;
+      position: absolute;
+      top: 0;
+      left: 0;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+    }
+    .wheel-container {
+      position: relative;
+      width: 90vmin;
+      height: 90vmin;
+      align-items: center;
+      justify-content: center;
+    }
+    .wheel {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      border: 10px solid #888;
+      position: relative;
+      transition: transform 5s cubic-bezier(0.25, 1, 0.25, 1);
+      background: conic-gradient(
+        #ff4d4d, #4d79ff, #4dff4d, #ffcc4d, #cc4dff,
+        #ff4d4d, #4d79ff, #4dff4d, #ffcc4d, #cc4dff,
+        #ff4d4d
+      );
+    }
+    .number {
+      position: absolute;
+      text-align: center;
+      font-size: 1.8vmin;
+      font-weight: 900;
+      color: #fff;
+      text-shadow: 0 0 5px #000, 0 0 10px #000;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      border: 1px solid red;
+    }
+    #pointer {
+      width: 0;
+      height: 0;
+      border-left: 30px solid transparent;
+      border-right: 30px solid transparent;
+      border-top: 50px solid #ff3333;
+      position: absolute;
+      top: -50px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+    }
+    #result {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 4vmin;
+      font-weight: bold;
+      color: white;
+      display: none;
+      text-align: center;
+      z-index: 20;
+      pointer-events: none;
+    }
+    .sound-toggle {
+      background-color: #3498db;
+      border: none;
+      padding: 10px 20px;
+      margin: 10px 0;
+      border-radius: 25px;
+      color: white;
+      font-size: 16px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+      position: absolute;
+      top: -60px;
+      right: 15px;
+      overflow: hidden;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 100;
+    }
+    .sound-toggle:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+      background-color: #2ecc71;
+    }
+    .sound-toggle::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 0;
+      height: 0;
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      transition: width 0.6s ease, height 0.6s ease;
+    }
+    .sound-toggle:hover::before {
+      width: 200px;
+      height: 200px;
+    }
+    .sound-toggle .spinning-text {
+      display: inline-block;
+      transition: transform 0.3s ease;
+    }
+    .sound-toggle:hover .spinning-text {
+      animation: spinX 1s infinite linear;
+    }
+    .swap-message {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background-color: rgba(0, 0, 0, 0.8);
+      color: white;
+      padding: 15px 30px;
+      border-radius: 10px;
+      font-size: 1.5rem;
+      text-align: center;
+      z-index: 1000;
+      display: none;
+    }
+    #newGameDialog {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background-color: #fff;
+      padding: 20px;
+      border: 2px solid #000;
+      border-radius: 10px;
+      z-index: 1000;
+      text-align: center;
+      display: none;
+    }
+    #newGameDialog p {
+      margin: 10px 0;
+      font-size: 20px;
+    }
+    #newGameDialog .button-container {
+      display: flex;
+      flex-direction: row;
+      justify-content: center;
+      gap: 20px;
+    }
+    #newGameDialog button {
+      background-color: #3498db;
+      border: none;
+      padding: 15px 30px;
+      border-radius: 25px;
+      color: white;
+      font-size: 18px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+      position: relative;
+      overflow: hidden;
+      display: inline-block;
+    }
+    #newGameDialog button:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+      background-color: #2ecc71;
+    }
+    #newGameDialog button::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 0;
+      height: 0;
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      transition: width 0.6s ease, height 0.6s ease;
+    }
+    #newGameDialog button:hover::before {
+      width: 300px;
+      height: 300px;
+    }
+    #newGameDialog button .spinning-text {
+      display: inline-block;
+      transition: transform 0.3s ease;
+    }
+    #newGameDialog button:hover .spinning-text {
+      animation: spinX 1s infinite linear;
+    }
+    .player-name {
+      cursor: pointer;
+    }
+    .player-indicator {
+      display: inline-block;
+      width: 1rem;
+      height: 1rem;
+      border-radius: 50%;
+      border: 1px solid black;
+      margin-left: 5px;
+    }
+    #nameChangeDialog {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background-color: #fff;
+      padding: 20px;
+      border: 2px solid #000;
+      border-radius: 10px;
+      z-index: 1000;
+      text-align: center;
+      display: none;
+    }
+    #nameChangeDialog input {
+      margin: 10px 0;
+      padding: 5px;
+      width: 200px;
+    }
+    #nameChangeDialog button {
+      background-color: #3498db;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 25px;
+      color: white;
+      font-size: 16px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+      margin: 0 5px;
+    }
+    #nameChangeDialog button:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+      background-color: #2ecc71;
+    }
+  </style>
+</head>
+<body>
+  <div id="gameContent">
+    <div id="playerSetup">
+      <label>Játékosok száma: </label>
+      <select id="playerCount">
+        <option value="2">2</option>
+        <option value="3">3</option>
+        <option value="4">4</option>
+      </select>
+      <button id="startButton" onclick="startGame()"><span class="spinning-text">Játék indítása</span></button>
+    </div>
+    <div id="playerList" style="margin: 20px 0;"></div>
+    <div id="gameBoardWrapper" style="position: relative; width: 100%; display: flex; justify-content: center;">
+      <div id="gameBoard" class="grid" style="display: none; position: relative; margin-top: 20px;">
+        <!-- Game board cells will be rendered here -->
+      </div>
+      <button class="sound-toggle" onclick="toggleSound()" id="soundToggleBtn" style="display: none;">
+        <span class="spinning-text" id="soundText">Hang bekapcsolása 🔊</span>
+      </button>
+    </div>
+    <div id="controls" style="display: none;">
+      <button id="rollButton" onclick="rollDice()"><span class="spinning-text" id="rollButtonText">Kocka dobása</span></button>
+      <div id="diceDisplay"></div>
+    </div>
+  </div>
+  <div id="numberDraw" style="display: none;">
+    <div class="wheel-container">
+      <div id="pointer"></div>
+      <div class="wheel" id="wheel"></div>
+      <div id="result"></div>
+    </div>
+  </div>
+  <div id="swapMessage" class="swap-message"></div>
+  <div id="newGameDialog">
+    <p id="winnerMessage"></p>
+    <p>Új játék?</p>
+    <div class="button-container">
+      <button onclick="handleNewGame(true)"><span class="spinning-text">Igen</span></button>
+      <button onclick="handleNewGame(false)"><span class="spinning-text">Nem</span></button>
+    </div>
+  </div>
+  <div id="nameChangeDialog">
+    <p>Új név megadása</p>
+    <input type="text" id="newPlayerName" placeholder="Add meg az új nevet" onkeypress="if(event.key === 'Enter') saveNameChange()" />
+    <button onclick="saveNameChange()">Mentés</button>
+    <button onclick="closeNameChangeDialog()">Mégse</button>
+  </div>
+
+  <script>
+    let players = [], currentPlayer = 0, gameStarted = false;
+    let specialFields = [];
+    let swapFields = [];
+    let drawnNumber = null;
+    let gameState = null;
+    let originalGameContent = null;
+    let diceSound = new Audio('dobas_hang.mp3');
+    let spinSound = new Audio('kerekhang.mp3');
+    let swapSound = new Audio('csere.mp3');
+    let fanfareSound = new Audio('fanfare.mp3');
+    let upSound = new Audio('fel.mp3');
+    let downSound = new Audio('le.mp3');
+    let soundEnabled = false;
+
+    // Check if audio files are loaded, provide fallback
+    diceSound.onerror = () => console.warn('Dice sound file not found, sound disabled.');
+    spinSound.onerror = () => console.warn('Spin sound file not found, sound disabled.');
+    swapSound.onerror = () => console.warn('Swap sound file not found, sound disabled.');
+    fanfareSound.onerror = () => console.warn('Fanfare sound file not found, sound disabled.');
+    upSound.onerror = () => console.warn('Up sound file (fel.mp3) not found, sound disabled.');
+    downSound.onerror = () => console.warn('Down sound file (le.mp3) not found, sound disabled.');
+    if (diceSound.error || spinSound.error || swapSound.error || fanfareSound.error || upSound.error || downSound.error) soundEnabled = false;
+
+    function startGame() {
+      const cnt = parseInt(document.getElementById('playerCount').value);
+      if (cnt < 2 || cnt > 4) return alert("2–4 játékost válassz!");
+      players = [];
+      const colors = ['red', 'yellow', 'green', 'blue'];
+      for (let i = 0; i < cnt; i++) {
+        players.push({ id: i + 1, position: 1, color: colors[i], name: `${i + 1}. játékos` });
+      }
+      currentPlayer = 0;
+      gameStarted = true;
+      assignSpecialFields();
+      assignSwapFields();
+      document.getElementById('playerSetup').style.display = 'none';
+      document.getElementById('gameBoard').style.display = 'grid';
+      document.getElementById('controls').style.display = 'flex';
+      document.getElementById('diceDisplay').style.display = 'none';
+      document.getElementById('soundToggleBtn').style.display = 'flex';
+      renderBoard();
+      renderPlayerList();
+      updateRollButton();
+      originalGameContent = document.getElementById('gameContent').innerHTML;
+    }
+
+    function newGame() {
+      players = [];
+      currentPlayer = 0;
+      gameStarted = false;
+      specialFields = [];
+      swapFields = [];
+      drawnNumber = null;
+      soundEnabled = false; // Turn off sound when starting a new game
+      document.getElementById('soundText').textContent = 'Hang bekapcsolása 🔊'; // Reset sound toggle text
+      document.getElementById('gameContent').innerHTML = originalGameContent;
+      document.getElementById('playerSetup').style.display = 'block';
+      document.getElementById('gameBoard').style.display = 'none';
+      document.getElementById('controls').style.display = 'none';
+      document.getElementById('diceDisplay').style.display = 'none';
+      document.getElementById('soundToggleBtn').style.display = 'none';
+      document.getElementById('playerList').innerHTML = '';
+      document.getElementById('swapMessage').style.display = 'none';
+    }
+
+    function assignSpecialFields() {
+      specialFields = [];
+      const taken = players.map(p => p.position).concat(swapFields);
+      while (specialFields.length < 10) {
+        let f = Math.floor(Math.random() * 100) + 1;
+        if (f !== 1 && f !== 100 && !specialFields.includes(f) && !taken.includes(f)) {
+          specialFields.push(f);
+        }
+      }
+    }
+
+    function assignSwapFields() {
+      swapFields = [];
+      const taken = players.map(p => p.position).concat(specialFields);
+      while (swapFields.length < 10) {
+        let f = Math.floor(Math.random() * 100) + 1;
+        if (f !== 1 && f !== 100 && !taken.includes(f) && !swapFields.includes(f)) {
+          swapFields.push(f);
+        }
+      }
+    }
+
+    function renderBoard() {
+      const board = document.getElementById('gameBoard');
+      board.innerHTML = '';
+      for (let i = 100; i >= 1; i--) {
+        const cell = document.createElement('div');
+        cell.className = 'board-cell';
+        cell.innerText = i;
+        if (specialFields.includes(i)) {
+          cell.classList.add('special-cell');
+          const icon = document.createElement('img');
+          icon.src = 'kerek.png';
+          icon.style.width = '24px';
+          icon.style.height = '24px';
+          cell.appendChild(icon);
+        } else if (swapFields.includes(i)) {
+          cell.classList.add('swap-cell');
+        }
+        players.forEach(p => {
+          if (p.position === i) {
+            const piece = document.createElement('div');
+            piece.className = 'player-piece';
+            piece.style.backgroundColor = p.color;
+            cell.appendChild(piece);
+          }
+        });
+        board.appendChild(cell);
+      }
+    }
+
+    function renderPlayerList() {
+      const list = document.getElementById('playerList');
+      list.innerHTML = '';
+      players.forEach((p, idx) => {
+        const row = document.createElement('div');
+        row.style.display = 'flex';
+        row.style.alignItems = 'center';
+        row.style.gap = '0.5rem';
+        const mark = document.createElement('div');
+        mark.className = 'player-piece';
+        mark.style.backgroundColor = p.color;
+        const span = document.createElement('span');
+        span.className = 'player-name';
+        span.innerText = `${p.name} - mező: ${p.position}`;
+        span.style.fontWeight = idx === currentPlayer ? 'bold' : 'normal';
+        span.onclick = () => openNameChangeDialog(p.id - 1);
+        row.appendChild(mark);
+        row.appendChild(span);
+        list.appendChild(row);
+      });
+      updateRollButton();
+    }
+
+    function openNameChangeDialog(playerIndex) {
+      const dialog = document.getElementById('nameChangeDialog');
+      document.getElementById('newPlayerName').value = players[playerIndex].name;
+      dialog.dataset.playerIndex = playerIndex;
+      dialog.style.display = 'block';
+    }
+
+    function closeNameChangeDialog() {
+      const dialog = document.getElementById('nameChangeDialog');
+      dialog.style.display = 'none';
+    }
+
+    function saveNameChange() {
+      const dialog = document.getElementById('nameChangeDialog');
+      const playerIndex = dialog.dataset.playerIndex;
+      const newName = document.getElementById('newPlayerName').value.trim();
+      if (newName) {
+        players[playerIndex].name = newName;
+        renderPlayerList();
+      }
+      closeNameChangeDialog();
+    }
+
+    function updateRollButton() {
+      const rollButtonText = document.getElementById('rollButtonText');
+      const current = players[currentPlayer];
+      if (current) {
+        const indicator = document.createElement('span');
+        indicator.className = 'player-indicator';
+        indicator.style.backgroundColor = current.color;
+        rollButtonText.innerHTML = `Kocka dobása <span class="player-indicator" style="background-color: ${current.color};"></span>`;
+      } else {
+        rollButtonText.innerHTML = 'Kocka dobása';
+      }
+    }
+
+    function updateDie(die, val) {
+      die.innerHTML = '';
+      die.setAttribute('data-value', val);
+      for (let i = 0; i < val; i++) {
+        const dot = document.createElement('div');
+        dot.className = 'dot';
+        die.appendChild(dot);
+      }
+    }
+
+    function triggerNumberDraw() {
+      gameState = {
+        players: JSON.parse(JSON.stringify(players)),
+        currentPlayer: currentPlayer,
+        gameStarted: gameStarted,
+        specialFields: [...specialFields],
+        swapFields: [...swapFields]
+      };
+
+      document.getElementById('gameContent').style.display = 'none';
+      document.getElementById('numberDraw').style.display = 'flex';
+
+      const wheel = document.getElementById('wheel');
+      const resultDisplay = document.getElementById('result');
+
+      resultDisplay.textContent = '';
+      resultDisplay.style.display = 'none';
+      wheel.innerHTML = '';
+
+      const totalNumbers = 100;
+      const containerSize = 90;
+      const radiusPercent = 44;
+      const radius = (radiusPercent / 100) * containerSize;
+      const centerX = 45;
+      const centerY = 45;
+
+      for (let i = 1; i <= totalNumbers; i++) {
+        const angle = (i - 1) * (360 / totalNumbers);
+        const rad = (angle - 90) * (Math.PI / 180);
+        const offset = (i % 2 === 0) ? -2 : 2;
+        const rAdj = radius + offset;
+        const x = centerX + rAdj * Math.cos(rad);
+        const y = centerY + rAdj * Math.sin(rad);
+
+        const numberElem = document.createElement('div');
+        numberElem.className = 'number';
+        numberElem.style.left = `${x}vmin`;
+        numberElem.style.top = `${y}vmin`;
+        numberElem.style.transform = `translate(-50%, -50%) rotate(${angle}deg) rotate(-${angle}deg)`;
+        numberElem.innerText = i;
+        wheel.appendChild(numberElem);
+      }
+
+      requestAnimationFrame(() => {
+        spinWheel();
+      });
+    }
+
+    function spinWheel() {
+      const wheel = document.getElementById('wheel');
+      const resultDisplay = document.getElementById('result');
+      if (soundEnabled && spinSound) {
+        spinSound.currentTime = 0;
+        spinSound.play().catch(() => console.warn('Spin sound playback failed.'));
+      }
+      const selectedNumber = Math.floor(Math.random() * 100) + 1;
+      const anglePerNumber = 360 / 100;
+      const targetAngle = (selectedNumber - 1) * anglePerNumber;
+      const extraSpins = 5 * 360;
+      const finalRotation = extraSpins - targetAngle;
+
+      resultDisplay.textContent = '';
+      resultDisplay.style.display = 'none';
+
+      wheel.style.transform = 'rotate(0deg)';
+      requestAnimationFrame(() => {
+        wheel.style.transform = `rotate(${finalRotation}deg)`;
+      });
+
+      setTimeout(() => {
+        const indicator = document.createElement('span');
+        indicator.className = 'player-indicator';
+        indicator.style.backgroundColor = players[currentPlayer].color;
+        resultDisplay.innerHTML = `Ugrás a ${selectedNumber}. mezőre `;
+        resultDisplay.appendChild(indicator);
+        resultDisplay.style.display = 'block';
+        drawnNumber = selectedNumber;
+        // Play sound based on movement direction
+        if (soundEnabled) {
+          const oldPosition = players[currentPlayer].position;
+          if (selectedNumber > oldPosition) {
+            upSound.currentTime = 0;
+            upSound.play().catch(() => console.warn('Up sound playback failed.'));
+          } else if (selectedNumber < oldPosition) {
+            downSound.currentTime = 0;
+            downSound.play().catch(() => console.warn('Down sound playback failed.'));
+          }
+        }
+        setTimeout(finishNumberDraw, 5000);
+      }, 5000);
+    }
+
+    function showNewGameDialog(winnerMessage) {
+      if (soundEnabled && fanfareSound) {
+        fanfareSound.currentTime = 0;
+        fanfareSound.play().catch(() => console.warn('Fanfare sound playback failed.'));
+      }
+      gameStarted = false;
+      const dialog = document.getElementById('newGameDialog');
+      document.getElementById('winnerMessage').textContent = winnerMessage;
+      dialog.style.display = 'block';
+    }
+
+    async function finishNumberDraw() {
+      document.getElementById('numberDraw').style.display = 'none';
+      document.getElementById('gameContent').style.display = 'block';
+      players = gameState.players;
+      currentPlayer = gameState.currentPlayer;
+      gameStarted = gameState.gameStarted;
+      specialFields = gameState.specialFields;
+      swapFields = gameState.swapFields;
+      if (drawnNumber) {
+        players[currentPlayer].position = drawnNumber;
+        assignSpecialFields();
+        assignSwapFields();
+        renderBoard();
+        renderPlayerList();
+        if (players[currentPlayer].position === 100) {
+          const winner = `${players[currentPlayer].name} nyert!`;
+          showNewGameDialog(winner);
+          return;
+        }
+      }
+      currentPlayer = (currentPlayer + 1) % players.length;
+      renderPlayerList();
+      assignSwapFields();
+    }
+
+    async function rollDice() {
+      if (!gameStarted) return;
+      if (soundEnabled && diceSound) {
+        diceSound.currentTime = 0;
+        diceSound.play().catch(() => console.warn('Dice sound playback failed.'));
+      }
+      const dd = document.getElementById('diceDisplay');
+      dd.style.display = 'block';
+      dd.innerHTML = '<div class="die" id="die1"></div>';
+      const die = document.getElementById('die1');
+      let cnt = 0;
+      const iv = setInterval(() => {
+        const v = Math.floor(Math.random() * 6) + 1;
+        updateDie(die, v);
+        cnt++;
+        if (cnt >= 10) {
+          clearInterval(iv);
+          finishRoll();
+        }
+      }, 100);
+
+      async function finishRoll() {
+        const roll = Math.floor(Math.random() * 6) + 1;
+        updateDie(die, roll);
+
+        const p = players[currentPlayer];
+        let newPos = p.position + roll;
+        if (newPos > 100) newPos = 100 - (newPos - 100);
+        const isOccupied = players.filter(player => player.position === newPos && player.id !== p.id).length > 0;
+        if (!isOccupied) {
+          p.position = newPos;
+        }
+
+        if (swapFields.includes(newPos) && !isOccupied) {
+          const otherPlayers = players.filter((_, idx) => idx !== currentPlayer);
+          if (otherPlayers.length > 0) {
+            const swapWith = otherPlayers[Math.floor(Math.random() * otherPlayers.length)];
+            const temp = newPos;
+            p.position = swapWith.position;
+            swapWith.position = temp;
+            if (soundEnabled && swapSound) {
+              swapSound.currentTime = 0;
+              swapSound.play().catch(() => console.warn('Swap sound playback failed.'));
+            }
+            showSwapMessage(`${p.name} helyet cserélt ${swapWith.name}-val`);
+            renderBoard();
+            renderPlayerList();
+            return;
+          }
+        } else if (specialFields.includes(newPos) && !isOccupied) {
+          triggerNumberDraw();
+        } else {
+          assignSpecialFields();
+          assignSwapFields();
+          renderBoard();
+          renderPlayerList();
+          if (p.position === 100) {
+            const winner = `${p.name} nyert!`;
+            showNewGameDialog(winner);
+            return;
+          }
+          currentPlayer = (currentPlayer + 1) % players.length;
+          renderPlayerList();
+          assignSwapFields();
+        }
+      }
+    }
+
+    function toggleSound() {
+      soundEnabled = !soundEnabled;
+      const soundText = document.getElementById('soundText');
+      soundText.textContent = soundEnabled ? 'Hang kikapcsolása 🔇' : 'Hang bekapcsolása 🔊';
+    }
+
+    function showSwapMessage(message) {
+      const swapMessage = document.getElementById('swapMessage');
+      swapMessage.textContent = message;
+      gameStarted = false;
+      swapMessage.style.display = 'block';
+      setTimeout(() => {
+        swapMessage.style.display = 'none';
+        gameStarted = true;
+        currentPlayer = (currentPlayer + 1) % players.length;
+        renderPlayerList();
+        assignSwapFields();
+      }, 4431);
+    }
+
+    function handleNewGame(choice) {
+      document.getElementById('newGameDialog').style.display = 'none';
+      if (choice) {
+        newGame();
+      } else {
+        window.open('', '_self')?.close();
+      }
+    }
+  </script>
+</body>
+</html>

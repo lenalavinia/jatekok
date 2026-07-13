@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dekázós Játék</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background-color: #f0f0f0;
+        }
+        canvas {
+            border: 1px solid black;
+            max-width: 90vw;
+            max-height: 80vh;
+            width: 100%;
+            height: auto;
+        }
+        #score {
+            font-size: 24px;
+            margin: 10px;
+            text-align: center;
+        }
+        #gameOver {
+            font-size: 32px;
+            color: red;
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+        #errorMessage {
+            font-size: 20px;
+            color: red;
+            margin: 10px;
+            text-align: center;
+            display: none;
+        }
+        #playAgainDialog {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #333;
+            color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 0 15px rgba(255,255,255,0.2);
+            z-index: 1000;
+            text-align: center;
+        }
+        #playAgainDialog p {
+            margin-bottom: 20px;
+            font-size: 18px;
+        }
+        #playAgainDialog button {
+            margin: 0 10px;
+            padding: 8px 18px;
+            font-size: 16px;
+            cursor: pointer;
+            background-color: #555;
+            color: white;
+            border: 1px solid #777;
+            border-radius: 5px;
+        }
+        #playAgainDialog button:hover {
+            background-color: #777;
+        }
+    </style>
+</head>
+<body>
+    <div id="score">Érintések: 0<br>Rekord: 0 - Nincs</div>
+    <div id="errorMessage"></div>
+    <canvas id="gameCanvas"></canvas>
+    <div id="gameOver">Játék Vége!</div>
+    <div id="playAgainDialog">
+        <p id="gameOverMessage">Játék Vége!</p>
+        <p>Új játék?</p>
+        <button id="yesButton">Új játék</button>
+        <button id="noButton">Kilépés</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreDisplay = document.getElementById('score');
+        const gameOverDisplay = document.getElementById('gameOver');
+        const errorMessage = document.getElementById('errorMessage');
+        const playAgainDialog = document.getElementById('playAgainDialog');
+        const gameOverMessageElement = document.getElementById('gameOverMessage');
+        const yesButton = document.getElementById('yesButton');
+        const noButton = document.getElementById('noButton');
+
+        const ballImg = new Image();
+        ballImg.src = 'labda_png.png';
+        const shoeImg = new Image();
+        shoeImg.src = 'cipo_png.png';
+
+        let ballImageLoaded = false;
+        let shoeImageLoaded = false;
+        let errorLoadingImages = false;
+        let usePixelCollision = false;
+
+        ballImg.onload = () => { ballImageLoaded = true; checkImagesLoaded(); };
+        shoeImg.onload = () => { shoeImageLoaded = true; checkImagesLoaded(); };
+        ballImg.onerror = () => {
+            errorLoadingImages = true;
+            ballImageLoaded = true;
+            errorMessage.textContent = "Nem sikerült betölteni a képeket, helyettesítő grafikák használata.";
+            errorMessage.style.display = 'block';
+            checkImagesLoaded();
+        };
+        shoeImg.onerror = () => {
+            errorLoadingImages = true;
+            shoeImageLoaded = true;
+            errorMessage.textContent = "Nem sikerült betölteni a képeket, helyettesítő grafikák használata.";
+            errorMessage.style.display = 'block';
+            checkImagesLoaded();
+        };
+
+        function resizeCanvas() {
+            const maxWidth = window.innerWidth * 0.9;
+            const maxHeight = window.innerHeight * 0.8;
+            const aspectRatio = 1920 / 1080;
+            let newWidth = maxWidth;
+            let newHeight = newWidth / aspectRatio;
+
+            if (newHeight > maxHeight) {
+                newHeight = maxHeight;
+                newWidth = newHeight * aspectRatio;
+            }
+
+            canvas.width = newWidth;
+            canvas.height = newHeight;
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        let ball = {
+            x: canvas.width / 2,
+            y: canvas.height / 10.8,
+            radius: canvas.width / 38.4,
+            dx: 0,
+            dy: 0,
+            gravity: 1.5 // <-- Sebesség növelve!
+        };
+        let shoe = {
+            x: canvas.width / 2,
+            y: canvas.height * 0.833,
+            width: canvas.width / 9.6,
+            height: canvas.height / 10.8,
+            speed: 1.5 // <-- Sebesség növelve!
+        };
+
+        const shoeCollisionHeight = shoe.height * 0.6;
+        const maxSpeed = 15;
+        let score = 0;
+        let highScore = localStorage.getItem('dekaHighScore') ? parseInt(localStorage.getItem('dekaHighScore')) : 0;
+        let highScoreName = localStorage.getItem('dekaHighScoreName') || 'Nincs';
+        let gameOver = false;
+        let paused = false;
+        let isColliding = false;
+
+        let mouseX = shoe.x;
+        let mouseY = shoe.y;
+
+        canvas.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            mouseX = (e.clientX - rect.left) * (canvas.width / rect.width);
+            mouseY = (e.clientY - rect.top) * (canvas.height / rect.height);
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space' && !gameOver) {
+                paused = !paused;
+                drawPauseScreen();
+                if (!paused) requestAnimationFrame(gameLoop);
+            }
+
+            if (paused) {
+                if (e.code === 'ArrowUp') ball.gravity = Math.min(ball.gravity + 0.1, 5);
+                if (e.code === 'ArrowDown') ball.gravity = Math.max(ball.gravity - 0.1, 0.1);
+                if (e.code === 'ArrowRight') shoe.speed = Math.min(shoe.speed + 0.1, 5);
+                if (e.code === 'ArrowLeft') shoe.speed = Math.max(shoe.speed - 0.1, 0.1);
+                drawPauseScreen();
+            }
+
+            if (playAgainDialog.style.display === 'block') {
+                if (e.key === 'Enter' || e.key === 'y' || e.key === 'Y') yesButton.click();
+                else if (e.key === 'Escape' || e.key === 'n' || e.key === 'N') noButton.click();
+            }
+        });
+
+        function drawPauseScreen() {
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = 'white';
+            ctx.font = `${24 * (canvas.width / 1920)}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.fillText('Szünet', canvas.width / 2, canvas.height / 2);
+            ctx.fillText(`Labda gravitáció: ${ball.gravity.toFixed(2)} | Cipő sebesség: ${shoe.speed.toFixed(2)}`, canvas.width / 2, canvas.height / 2 + 40);
+        }
+
+        function checkImagesLoaded() {
+            if (ballImageLoaded && shoeImageLoaded) requestAnimationFrame(gameLoop);
+        }
+
+        function drawBall() {
+            if (!errorLoadingImages) ctx.drawImage(ballImg, ball.x - ball.radius, ball.y - ball.radius, ball.radius * 2, ball.radius * 2);
+            else {
+                ctx.beginPath();
+                ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+                ctx.fillStyle = 'blue';
+                ctx.fill();
+                ctx.closePath();
+            }
+        }
+
+        function drawShoe() {
+            if (!errorLoadingImages) ctx.drawImage(shoeImg, shoe.x - shoe.width / 2, shoe.y - shoe.height / 2, shoe.width, shoe.height);
+            else {
+                ctx.fillStyle = 'black';
+                ctx.fillRect(shoe.x - shoe.width / 2, shoe.y - shoe.height / 2, shoe.width, shoe.height);
+            }
+        }
+
+        function gameLoop() {
+            if (paused || gameOver) return;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawBall();
+            drawShoe();
+
+            shoe.x += (mouseX - shoe.x) * 0.1 * shoe.speed;
+            shoe.y += (mouseY - shoe.y) * 0.1 * shoe.speed;
+
+            ball.x += ball.dx;
+            ball.y += ball.dy;
+            ball.dy += ball.gravity;
+
+            if (ball.x + ball.radius > canvas.width || ball.x - ball.radius < 0) ball.dx *= -1;
+            if (ball.y + ball.radius > canvas.height) {
+                endGame();
+                return;
+            }
+
+            const collision = detectCollision();
+            if (collision && !isColliding) {
+                ball.dy *= -1.05;
+                ball.dx = (ball.x - shoe.x) * 0.1;
+                isColliding = true;
+                score++;
+                if (score > highScore) {
+                    highScore = score;
+                    highScoreName = 'Névtelen'; // vagy kérhetjük be
+                    localStorage.setItem('dekaHighScore', highScore);
+                    localStorage.setItem('dekaHighScoreName', highScoreName);
+                }
+                updateScore();
+            }
+            if (!collision) isColliding = false;
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        function updateScore() {
+            scoreDisplay.innerHTML = `Érintések: ${score}<br>Rekord: ${highScore} - ${highScoreName}`;
+        }
+
+        function detectCollision() {
+            return ball.y + ball.radius > shoe.y - shoeCollisionHeight &&
+                   ball.y + ball.radius < shoe.y + shoe.height / 2 &&
+                   ball.x > shoe.x - shoe.width / 2 &&
+                   ball.x < shoe.x + shoe.width / 2 &&
+                   ball.dy > 0;
+        }
+
+        function endGame() {
+            gameOver = true;
+            playAgainDialog.style.display = 'block';
+            gameOverMessageElement.innerHTML = `Játék Vége!<br>Érintések: ${score}<br>Rekord: ${highScore} - ${highScoreName}`;
+        }
+
+        yesButton.onclick = () => {
+            ball = {
+                x: canvas.width / 2,
+                y: canvas.height / 10.8,
+                radius: canvas.width / 38.4,
+                dx: 0,
+                dy: 0,
+                gravity: ball.gravity
+            };
+            shoe = {
+                x: canvas.width / 2,
+                y: canvas.height * 0.833,
+                width: canvas.width / 9.6,
+                height: canvas.height / 10.8,
+                speed: shoe.speed
+            };
+            score = 0;
+            gameOver = false;
+            playAgainDialog.style.display = 'none';
+            updateScore();
+            requestAnimationFrame(gameLoop);
+        };
+
+        noButton.onclick = () => {
+            location.reload();
+        };
+    </script>
+</body>
+</html>
