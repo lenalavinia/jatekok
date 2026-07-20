@@ -12,7 +12,37 @@
         margin: 0;
         padding: 20px;
     }
+    .container {
+        max-width: 700px;
+        margin: 0 auto;
+    }
 
+    /* Kezdőképernyő */
+    #start-screen {
+        margin-top: 50px;
+    }
+    #start-screen h1 {
+        font-size: 48px;
+        margin-bottom: 30px;
+        color: #3498db;
+        text-shadow: 0 0 15px rgba(52, 152, 219, 0.6);
+    }
+    .input-group {
+        margin: 20px 0;
+        font-size: 20px;
+    }
+    .input-group input {
+        padding: 12px 16px;
+        font-size: 18px;
+        width: 280px;
+        border-radius: 12px;
+        border: none;
+        background: #333;
+        color: white;
+        margin-top: 8px;
+    }
+
+    /* Játék képernyő */
     .top {
         margin: 15px 0;
         display: flex;
@@ -21,22 +51,11 @@
         flex-wrap: wrap;
         gap: 15px;
     }
-
-    .top input {
-        padding: 8px 12px;
-        font-size: 16px;
-        border-radius: 8px;
-        border: none;
-        background: #333;
-        color: white;
-    }
-
     #status {
         font-size: 26px;
         margin: 15px 0;
         min-height: 38px;
     }
-
     #numbers {
         display: grid;
         grid-template-columns: repeat(7, 70px);
@@ -46,11 +65,6 @@
         font-size: 22px;
         font-weight: bold;
     }
-
-    #numbers div {
-        text-align: center;
-    }
-
     #board {
         display: grid;
         grid-template-columns: repeat(7, 70px);
@@ -61,7 +75,6 @@
         width: max-content;
         margin: 20px auto;
     }
-
     .cell {
         width: 70px;
         height: 70px;
@@ -70,34 +83,32 @@
         cursor: pointer;
         box-shadow: inset 0 4px 8px rgba(0,0,0,0.3);
     }
-
     .green { background: limegreen; }
     .pink { background: hotpink; }
 
+    /* Fancy gombok */
     button {
         background-color: #3498db;
         border: none;
-        padding: 12px 24px;
-        margin: 5px;
-        border-radius: 25px;
+        padding: 14px 32px;
+        margin: 10px;
+        border-radius: 30px;
         color: white;
-        font-size: 18px;
+        font-size: 20px;
         cursor: pointer;
         position: relative;
         overflow: hidden;
         box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
         transition: all 0.3s ease;
-        display: flex;
+        display: inline-flex;
         align-items: center;
         justify-content: center;
     }
-
     button:hover {
         background-color: #2ecc71;
         transform: translateY(-5px);
         box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
     }
-
     button::before {
         content: '';
         position: absolute;
@@ -110,116 +121,168 @@
         transform: translate(-50%, -50%);
         transition: width 0.6s ease, height 0.6s ease;
     }
-
     button:hover::before {
         width: 300px;
         height: 300px;
     }
-
     .spinning-text {
         display: inline-block;
         transition: transform 0.3s ease;
     }
-
     button:hover .spinning-text {
         animation: spinX 0.8s infinite linear;
     }
-
     @keyframes spinX {
         0% { transform: rotateX(0deg); }
         100% { transform: rotateX(360deg); }
     }
+    .hidden { display: none !important; }
 </style>
 </head>
 <body>
-    <h2>Négy a nyerő</h2>
-    
-    <div class="top">
-        Játékos 1: <input id="n1" value="Játékos 1">
-        Játékos 2: <input id="n2" value="Játékos 2">
-        <button onclick="resetGame()">
-            <span class="spinning-text">Új játék</span>
-        </button>
+    <div class="container">
+
+        <!-- KEZDŐKÉPERNYŐ -->
+        <div id="start-screen">
+            <h1>Négy a nyerő</h1>
+            <div class="input-group">
+                Játékos 1 (zöld):<br>
+                <input id="n1" value="Játékos 1" maxlength="20">
+            </div>
+            <div class="input-group">
+                Játékos 2 (rózsaszín):<br>
+                <input id="n2" value="Játékos 2" maxlength="20">
+            </div>
+            <button onclick="startGame()">
+                <span class="spinning-text">▶ INDÍTÁS</span>
+            </button>
+        </div>
+
+        <!-- JÁTÉK KÉPERNYŐ -->
+        <div id="game-screen" class="hidden">
+            <h2>Négy a nyerő</h2>
+           
+            <div class="top">
+                <span>Játékos 1: <strong id="p1name"></strong> 🟢</span>
+                <span>Játékos 2: <strong id="p2name"></strong> 🩷</span>
+                <button id="newGameBtn" onclick="backToStart()">
+                    <span class="spinning-text">Új játék</span>
+                </button>
+            </div>
+            <div id="status"></div>
+           
+            <div id="numbers">
+                <div>1</div><div>2</div><div>3</div><div>4</div><div>5</div><div>6</div><div>7</div>
+            </div>
+           
+            <div id="board"></div>
+        </div>
     </div>
-
-    <div id="status"></div>
-
-    <div id="numbers">
-        <div>1</div>
-        <div>2</div>
-        <div>3</div>
-        <div>4</div>
-        <div>5</div>
-        <div>6</div>
-        <div>7</div>
-    </div>
-
-    <div id="board"></div>
 
 <script>
 const R=6, C=7, b=[], cells=[];
 let p=1, over=false;
-const bd=document.getElementById('board'), st=document.getElementById('status');
-const p1=()=>document.getElementById('n1').value||'Játékos 1';
-const p2=()=>document.getElementById('n2').value||'Játékos 2';
+let player1 = "Játékos 1";
+let player2 = "Játékos 2";
 
+const bd = document.getElementById('board');
+const st = document.getElementById('status');
+const startScreen = document.getElementById('start-screen');
+const gameScreen = document.getElementById('game-screen');
 const fanfare = new Audio('fanfare.mp3');
 
-function resetGame(){
-    over=false;
-    p=1;
-    for(let r=0;r<R;r++){
-        b[r]=[];
-        for(let c=0;c<C;c++) b[r][c]=0;
+// Globális Enter billentyű kezelés
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+        // Kezdőképernyőn
+        if (!startScreen.classList.contains('hidden')) {
+            startGame();
+        }
+        // Játék képernyőn (csak ha nincs beviteli mező fókuszban)
+        else if (!gameScreen.classList.contains('hidden')) {
+            const active = document.activeElement.tagName;
+            if (active !== 'INPUT' && active !== 'TEXTAREA') {
+                backToStart();
+            }
+        }
+    }
+});
+
+function startGame() {
+    player1 = document.getElementById('n1').value.trim() || 'Játékos 1';
+    player2 = document.getElementById('n2').value.trim() || 'Játékos 2';
+    
+    document.getElementById('p1name').textContent = player1;
+    document.getElementById('p2name').textContent = player2;
+    
+    startScreen.classList.add('hidden');
+    gameScreen.classList.remove('hidden');
+    
+    resetBoard();
+}
+
+function backToStart() {
+    gameScreen.classList.add('hidden');
+    startScreen.classList.remove('hidden');
+}
+
+function resetBoard(){
+    over = false;
+    p = 1;
+    for(let r=0; r<R; r++){
+        b[r] = [];
+        for(let c=0; c<C; c++) b[r][c] = 0;
     }
     draw();
 }
 
 function draw(){
-    bd.innerHTML='';
-    for(let r=0;r<R;r++){
-        cells[r]=[];
-        for(let c=0;c<C;c++){
-            let d=document.createElement('div');
-            d.className='cell';
-            d.onclick=()=>move(c);
+    bd.innerHTML = '';
+    for(let r=0; r<R; r++){
+        cells[r] = [];
+        for(let c=0; c<C; c++){
+            let d = document.createElement('div');
+            d.className = 'cell';
+            d.onclick = () => move(c);
             bd.appendChild(d);
-            cells[r][c]=d;
+            cells[r][c] = d;
         }
     }
     render();
 }
 
 function render(){
-    for(let r=0;r<R;r++){
-        for(let c=0;c<C;c++){
-            let e=cells[r][c];
-            e.className='cell';
-            if(b[r][c]==1) e.classList.add('green');
-            if(b[r][c]==2) e.classList.add('pink');
+    for(let r=0; r<R; r++){
+        for(let c=0; c<C; c++){
+            let e = cells[r][c];
+            e.className = 'cell';
+            if(b[r][c] == 1) e.classList.add('green');
+            if(b[r][c] == 2) e.classList.add('pink');
         }
     }
-    if(!over) st.textContent = (p==1 ? p1()+' 🟢' : p2()+' 🩷') + ' következik';
+    if(!over) {
+        st.textContent = (p==1 ? player1 + ' 🟢' : player2 + ' 🩷') + ' következik';
+    }
 }
 
 function move(c){
     if(over) return;
     for(let r=R-1; r>=0; r--){
-        if(b[r][c]==0){
-            b[r][c]=p;
+        if(b[r][c] == 0){
+            b[r][c] = p;
             render();
             
             if(win(r,c)){
-                over=true;
-                st.textContent = '🏆 ' + (p==1 ? p1() : p2()) + ' nyert!';
+                over = true;
+                st.textContent = '🏆 ' + (p==1 ? player1 : player2) + ' nyert!';
                 fanfare.currentTime = 0;
                 fanfare.play().catch(e => console.log('Hang lejátszása sikertelen:', e));
                 return;
             }
             
             if(full()){
-                over=true;
-                st.textContent='🤝 Döntetlen!';
+                over = true;
+                st.textContent = '🤝 Döntetlen!';
                 return;
             }
             
@@ -231,32 +294,30 @@ function move(c){
 }
 
 function full(){
-    for(let r=0;r<R;r++) 
-        for(let c=0;c<C;c++) 
+    for(let r=0; r<R; r++)
+        for(let c=0; c<C; c++)
             if(!b[r][c]) return false;
     return true;
 }
 
 function win(r,c){
-    let v=b[r][c], D=[[1,0],[0,1],[1,1],[1,-1]];
+    let v = b[r][c], D = [[1,0],[0,1],[1,1],[1,-1]];
     for(let d of D){
-        let n=1;
+        let n = 1;
         for(let s=1; ;s++){
-            let rr=r+d[0]*s, cc=c+d[1]*s;
-            if(rr<0||rr>=R||cc<0||cc>=C||b[rr][cc]!=v) break;
+            let rr = r + d[0]*s, cc = c + d[1]*s;
+            if(rr<0 || rr>=R || cc<0 || cc>=C || b[rr][cc] != v) break;
             n++;
         }
         for(let s=1; ;s++){
-            let rr=r-d[0]*s, cc=c-d[1]*s;
-            if(rr<0||rr>=R||cc<0||cc>=C||b[rr][cc]!=v) break;
+            let rr = r - d[0]*s, cc = c - d[1]*s;
+            if(rr<0 || rr>=R || cc<0 || cc>=C || b[rr][cc] != v) break;
             n++;
         }
-        if(n>=4) return true;
+        if(n >= 4) return true;
     }
     return false;
 }
-
-resetGame();
 </script>
 </body>
 </html>
