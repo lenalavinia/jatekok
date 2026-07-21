@@ -13,13 +13,14 @@
         padding: 20px;
     }
     .container {
-        max-width: 700px;
+        max-width: 100%;
         margin: 0 auto;
+        padding: 0 10px;
     }
 
     /* Kezdőképernyő */
     #start-screen {
-        margin-top: 50px;
+        margin-top: 40px;
     }
     #start-screen h1 {
         font-size: 48px;
@@ -28,7 +29,7 @@
         text-shadow: 0 0 15px rgba(52, 152, 219, 0.6);
     }
     .input-group {
-        margin: 20px 0;
+        margin: 18px 0;
         font-size: 20px;
     }
     .input-group input {
@@ -41,6 +42,20 @@
         color: white;
         margin-top: 8px;
     }
+    .size-inputs {
+        display: flex;
+        justify-content: center;
+        gap: 30px;
+        margin: 25px 0;
+        flex-wrap: wrap;
+    }
+    .size-inputs label {
+        font-size: 18px;
+    }
+    .size-inputs input {
+        width: 80px;
+        text-align: center;
+    }
 
     /* Játék képernyő */
     .top {
@@ -49,35 +64,39 @@
         justify-content: center;
         align-items: center;
         flex-wrap: wrap;
-        gap: 15px;
+        gap: 12px;
     }
     #status {
         font-size: 26px;
         margin: 15px 0;
         min-height: 38px;
     }
+
+    .board-wrapper {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        overflow-x: auto;
+        padding: 10px 0;
+    }
+
     #numbers {
         display: grid;
-        grid-template-columns: repeat(7, 70px);
         gap: 8px;
         width: max-content;
-        margin: 0 auto 8px auto;
         font-size: 22px;
         font-weight: bold;
+        margin-bottom: 4px;
     }
     #board {
         display: grid;
-        grid-template-columns: repeat(7, 70px);
         gap: 8px;
         background: #1565C0;
         padding: 12px;
         border-radius: 16px;
         width: max-content;
-        margin: 20px auto;
     }
     .cell {
-        width: 70px;
-        height: 70px;
         border-radius: 50%;
         background: #fff;
         cursor: pointer;
@@ -90,11 +109,11 @@
     button {
         background-color: #3498db;
         border: none;
-        padding: 14px 32px;
-        margin: 10px;
+        padding: 12px 24px;
+        margin: 5px;
         border-radius: 30px;
         color: white;
-        font-size: 20px;
+        font-size: 18px;
         cursor: pointer;
         position: relative;
         overflow: hidden;
@@ -145,6 +164,7 @@
         <!-- KEZDŐKÉPERNYŐ -->
         <div id="start-screen">
             <h1>Négy a nyerő</h1>
+            
             <div class="input-group">
                 Játékos 1 (zöld):<br>
                 <input id="n1" value="Játékos 1" maxlength="20">
@@ -153,6 +173,22 @@
                 Játékos 2 (rózsaszín):<br>
                 <input id="n2" value="Játékos 2" maxlength="20">
             </div>
+
+            <div class="size-inputs">
+                <div>
+                    <label>Sorok (6-7): </label><br>
+                    <input id="rows" type="number" value="6" min="6" max="7">
+                </div>
+                <div>
+                    <label>Oszlopok (7-20): </label><br>
+                    <input id="cols" type="number" value="7" min="7" max="20">
+                </div>
+            </div>
+
+            <button onclick="toggleSound()" id="soundToggle">
+                <span class="spinning-text">Hang bekapcsolva 🔊</span>
+            </button>
+
             <button onclick="startGame()">
                 <span class="spinning-text">▶ INDÍTÁS</span>
             </button>
@@ -165,41 +201,45 @@
             <div class="top">
                 <span>Játékos 1: <strong id="p1name"></strong> 🟢</span>
                 <span>Játékos 2: <strong id="p2name"></strong> 🩷</span>
-                <button id="newGameBtn" onclick="backToStart()">
+                <button onclick="toggleSound()" id="soundToggleGame" style="padding: 10px 16px; font-size: 22px;">
+                    <span class="spinning-text">🔊</span>
+                </button>
+                <button onclick="backToStart()">
                     <span class="spinning-text">Új játék</span>
                 </button>
             </div>
             <div id="status"></div>
            
-            <div id="numbers">
-                <div>1</div><div>2</div><div>3</div><div>4</div><div>5</div><div>6</div><div>7</div>
+            <div class="board-wrapper">
+                <div id="numbers"></div>
+                <div id="board"></div>
             </div>
-           
-            <div id="board"></div>
         </div>
     </div>
 
 <script>
-const R=6, C=7, b=[], cells=[];
-let p=1, over=false;
+let R = 6, C = 7;
+const b = [], cells = [];
+let p = 1, over = false;
 let player1 = "Játékos 1";
 let player2 = "Játékos 2";
+let soundEnabled = true;   // alapból bekapcsolva
 
 const bd = document.getElementById('board');
+const nums = document.getElementById('numbers');
 const st = document.getElementById('status');
 const startScreen = document.getElementById('start-screen');
 const gameScreen = document.getElementById('game-screen');
 const fanfare = new Audio('fanfare.mp3');
+const soundToggleStart = document.getElementById('soundToggle');
+const soundToggleGame = document.getElementById('soundToggleGame');
 
 // Globális Enter billentyű kezelés
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Enter') {
-        // Kezdőképernyőn
         if (!startScreen.classList.contains('hidden')) {
             startGame();
-        }
-        // Játék képernyőn (csak ha nincs beviteli mező fókuszban)
-        else if (!gameScreen.classList.contains('hidden')) {
+        } else if (!gameScreen.classList.contains('hidden')) {
             const active = document.activeElement.tagName;
             if (active !== 'INPUT' && active !== 'TEXTAREA') {
                 backToStart();
@@ -208,7 +248,30 @@ document.addEventListener('keydown', function(e) {
     }
 });
 
+function updateSoundUI() {
+    if (soundEnabled) {
+        soundToggleStart.innerHTML = `<span class="spinning-text">Hang bekapcsolva 🔊</span>`;
+        soundToggleGame.innerHTML = `<span class="spinning-text">🔊</span>`;
+    } else {
+        soundToggleStart.innerHTML = `<span class="spinning-text">Hang kikapcsolva 🔇</span>`;
+        soundToggleGame.innerHTML = `<span class="spinning-text">🔇</span>`;
+    }
+}
+
+function toggleSound() {
+    soundEnabled = !soundEnabled;
+    updateSoundUI();
+}
+
 function startGame() {
+    R = parseInt(document.getElementById('rows').value) || 6;
+    C = parseInt(document.getElementById('cols').value) || 7;
+    
+    if (R < 6) R = 6;
+    if (R > 7) R = 7;
+    if (C < 7) C = 7;
+    if (C > 20) C = 20;
+
     player1 = document.getElementById('n1').value.trim() || 'Játékos 1';
     player2 = document.getElementById('n2').value.trim() || 'Játékos 2';
     
@@ -229,20 +292,36 @@ function backToStart() {
 function resetBoard(){
     over = false;
     p = 1;
-    for(let r=0; r<R; r++){
+    b.length = 0;
+    for(let r = 0; r < R; r++){
         b[r] = [];
-        for(let c=0; c<C; c++) b[r][c] = 0;
+        for(let c = 0; c < C; c++) b[r][c] = 0;
     }
     draw();
 }
 
 function draw(){
+    const size = '70px';
+    const gridStyle = `repeat(${C}, ${size})`;
+    
+    nums.style.gridTemplateColumns = gridStyle;
+    nums.innerHTML = '';
+    for(let c = 1; c <= C; c++){
+        let d = document.createElement('div');
+        d.textContent = c;
+        nums.appendChild(d);
+    }
+
+    bd.style.gridTemplateColumns = gridStyle;
     bd.innerHTML = '';
-    for(let r=0; r<R; r++){
+    cells.length = 0;
+    for(let r = 0; r < R; r++){
         cells[r] = [];
-        for(let c=0; c<C; c++){
+        for(let c = 0; c < C; c++){
             let d = document.createElement('div');
             d.className = 'cell';
+            d.style.width = size;
+            d.style.height = size;
             d.onclick = () => move(c);
             bd.appendChild(d);
             cells[r][c] = d;
@@ -252,8 +331,8 @@ function draw(){
 }
 
 function render(){
-    for(let r=0; r<R; r++){
-        for(let c=0; c<C; c++){
+    for(let r = 0; r < R; r++){
+        for(let c = 0; c < C; c++){
             let e = cells[r][c];
             e.className = 'cell';
             if(b[r][c] == 1) e.classList.add('green');
@@ -267,25 +346,27 @@ function render(){
 
 function move(c){
     if(over) return;
-    for(let r=R-1; r>=0; r--){
+    for(let r = R-1; r >= 0; r--){
         if(b[r][c] == 0){
             b[r][c] = p;
             render();
-            
+           
             if(win(r,c)){
                 over = true;
                 st.textContent = '🏆 ' + (p==1 ? player1 : player2) + ' nyert!';
-                fanfare.currentTime = 0;
-                fanfare.play().catch(e => console.log('Hang lejátszása sikertelen:', e));
+                if (soundEnabled) {
+                    fanfare.currentTime = 0;
+                    fanfare.play().catch(e => console.log('Hang lejátszása sikertelen:', e));
+                }
                 return;
             }
-            
+           
             if(full()){
                 over = true;
                 st.textContent = '🤝 Döntetlen!';
                 return;
             }
-            
+           
             p = p==1 ? 2 : 1;
             render();
             return;
@@ -294,30 +375,33 @@ function move(c){
 }
 
 function full(){
-    for(let r=0; r<R; r++)
-        for(let c=0; c<C; c++)
+    for(let r = 0; r < R; r++)
+        for(let c = 0; c < C; c++)
             if(!b[r][c]) return false;
     return true;
 }
 
-function win(r,c){
+function win(r, c){
     let v = b[r][c], D = [[1,0],[0,1],[1,1],[1,-1]];
     for(let d of D){
         let n = 1;
-        for(let s=1; ;s++){
+        for(let s = 1; ; s++){
             let rr = r + d[0]*s, cc = c + d[1]*s;
-            if(rr<0 || rr>=R || cc<0 || cc>=C || b[rr][cc] != v) break;
+            if(rr < 0 || rr >= R || cc < 0 || cc >= C || b[rr][cc] != v) break;
             n++;
         }
-        for(let s=1; ;s++){
+        for(let s = 1; ; s++){
             let rr = r - d[0]*s, cc = c - d[1]*s;
-            if(rr<0 || rr>=R || cc<0 || cc>=C || b[rr][cc] != v) break;
+            if(rr < 0 || rr >= R || cc < 0 || cc >= C || b[rr][cc] != v) break;
             n++;
         }
         if(n >= 4) return true;
     }
     return false;
 }
+
+// Kezdeti állapot
+updateSoundUI();
 </script>
 </body>
 </html>
