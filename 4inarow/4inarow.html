@@ -164,7 +164,7 @@
         <!-- KEZDŐKÉPERNYŐ -->
         <div id="start-screen">
             <h1>Négy a nyerő</h1>
-            
+           
             <div class="input-group">
                 Játékos 1 (zöld):<br>
                 <input id="n1" value="Játékos 1" maxlength="20">
@@ -223,25 +223,26 @@ const b = [], cells = [];
 let p = 1, over = false;
 let player1 = "Játékos 1";
 let player2 = "Játékos 2";
-let soundEnabled = true;   // alapból bekapcsolva
+let soundEnabled = true;
 
 const bd = document.getElementById('board');
 const nums = document.getElementById('numbers');
 const st = document.getElementById('status');
 const startScreen = document.getElementById('start-screen');
 const gameScreen = document.getElementById('game-screen');
+
 const fanfare = new Audio('fanfare.mp3');
+const dropSound = new Audio('zseton.mp3');   // ← Új zseton hang
+
 const soundToggleStart = document.getElementById('soundToggle');
 const soundToggleGame = document.getElementById('soundToggleGame');
 
-// Globális Enter billentyű kezelés
+// Globális Enter billentyű
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Enter') {
-        if (!startScreen.classList.contains('hidden')) {
-            startGame();
-        } else if (!gameScreen.classList.contains('hidden')) {
-            const active = document.activeElement.tagName;
-            if (active !== 'INPUT' && active !== 'TEXTAREA') {
+        if (!startScreen.classList.contains('hidden')) startGame();
+        else if (!gameScreen.classList.contains('hidden')) {
+            if (document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
                 backToStart();
             }
         }
@@ -267,10 +268,8 @@ function startGame() {
     R = parseInt(document.getElementById('rows').value) || 6;
     C = parseInt(document.getElementById('cols').value) || 7;
     
-    if (R < 6) R = 6;
-    if (R > 7) R = 7;
-    if (C < 7) C = 7;
-    if (C > 20) C = 20;
+    if (R < 6) R = 6; if (R > 7) R = 7;
+    if (C < 7) C = 7; if (C > 20) C = 20;
 
     player1 = document.getElementById('n1').value.trim() || 'Játékos 1';
     player2 = document.getElementById('n2').value.trim() || 'Játékos 2';
@@ -349,6 +348,13 @@ function move(c){
     for(let r = R-1; r >= 0; r--){
         if(b[r][c] == 0){
             b[r][c] = p;
+            
+            // Zseton lehullik → hang
+            if (soundEnabled) {
+                dropSound.currentTime = 0;
+                dropSound.play().catch(() => {});
+            }
+            
             render();
            
             if(win(r,c)){
@@ -356,7 +362,7 @@ function move(c){
                 st.textContent = '🏆 ' + (p==1 ? player1 : player2) + ' nyert!';
                 if (soundEnabled) {
                     fanfare.currentTime = 0;
-                    fanfare.play().catch(e => console.log('Hang lejátszása sikertelen:', e));
+                    fanfare.play().catch(() => {});
                 }
                 return;
             }
@@ -400,7 +406,7 @@ function win(r, c){
     return false;
 }
 
-// Kezdeti állapot
+// Kezdeti UI
 updateSoundUI();
 </script>
 </body>
