@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<title>Páros vagy páratlan hét</title>
+
+<style>
+body{
+    font-family:Arial,Helvetica,sans-serif;
+    background:#f2f2f2;
+    text-align:center;
+    margin-top:50px;
+}
+
+.container{
+    background:white;
+    display:inline-block;
+    padding:30px;
+    border-radius:10px;
+    box-shadow:0 0 10px rgba(0,0,0,.2);
+}
+
+input{
+    font-size:18px;
+    padding:8px;
+}
+
+button{
+    margin-top:15px;
+    padding:10px 20px;
+    font-size:18px;
+    cursor:pointer;
+}
+
+#result{
+    margin-top:25px;
+    font-size:24px;
+    font-weight:bold;
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Páros vagy páratlan hét</h2>
+
+    <input type="date" id="datum"><br>
+
+    <button onclick="szamol()">Ellenőrzés</button>
+
+    <div id="result"></div>
+</div>
+
+<script>
+
+function getWeekNumber(date){
+
+    // ISO 8601 hét száma
+
+    let d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+
+    let dayNum = d.getUTCDay();
+    if(dayNum === 0) dayNum = 7;
+
+    d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+
+    let yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
+
+    return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+}
+
+function szamol(){
+
+    let value = document.getElementById("datum").value;
+
+    if(value===""){
+        alert("Válassz dátumot!");
+        return;
+    }
+
+    let date = new Date(value);
+
+    let week = getWeekNumber(date);
+
+    let text = (week % 2 === 0)
+        ? "PÁROS HÉT"
+        : "PÁRATLAN HÉT";
+
+    document.getElementById("result").innerHTML =
+        "Hét száma: <b>"+week+"</b><br><br>"+text;
+}
+
+</script>
+
+</body>
+</html>
